@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Handshake: turn chat deals into agreements</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1><span>Handshake</span></h1>
+      <p class="tagline">Turn a WhatsApp deal into a clear agreement both sides confirm, with proof nobody can quietly change.</p>
+    </div>
+  </header>
+
+  <ol class="steps" id="steps">
+    <li><button data-step="1" aria-current="step">Chat<small>Paste or upload</small></button></li>
+    <li><button data-step="2" disabled>Terms<small>Check what we found</small></button></li>
+    <li><button data-step="3" disabled>Agreement<small>Send for confirmation</small></button></li>
+    <li><button data-step="4" disabled>Proof<small>Evidence trail</small></button></li>
+  </ol>
+
+  <!-- 1. chat -->
+  <section id="s1" class="card">
+    <h2>Start with the chat</h2>
+    <label for="title">Deal name</label>
+    <input id="title" type="text" value="Wedding cards for Ravi" maxlength="80">
+    <label for="chat">WhatsApp chat</label>
+    <textarea id="chat" placeholder="Paste the exported chat here, or upload the .txt file below."></textarea>
+    <label for="file">Or upload the export (.txt)</label>
+    <input id="file" type="file" accept=".txt,text/plain">
+    <p class="muted">In WhatsApp: open the chat, tap the name, then Export chat, then Without media.</p>
+    <div class="row">
+      <button class="btn primary" id="analyze">Read the chat</button>
+      <button class="btn plain" id="sample">Use sample chat</button>
+    </div>
+  </section>
+
+  <!-- 2. terms -->
+  <section id="s2" class="hidden">
+    <div class="card">
+      <h2>What we found</h2>
+      <p class="muted" id="engine"></p>
+      <div id="parties"></div>
+      <div id="termFields"></div>
+      <div id="sources"></div>
+    </div>
+
+    <div class="card" id="supersededCard">
+      <h2>Things that changed in the chat</h2>
+      <p class="muted">We used the latest value. Nothing is deleted from the evidence.</p>
+      <div id="superseded"></div>
+    </div>
+
+    <div class="card accent">
+      <h2>Settle these before you sign</h2>
+      <p class="muted">Each one comes with a friendly message you can send as it is.</p>
+      <div id="gaps"></div>
+    </div>
+
+    <div class="row">
+      <button class="btn primary" id="toAgreement">Make the agreement</button>
+    </div>
+  </section>
+
+  <!-- 3. agreement -->
+  <section id="s3" class="hidden">
+    <div class="card">
+      <h2>Agreement</h2>
+      <div class="row" style="margin-bottom:16px">
+        <div class="seg" role="group" aria-label="Tone">
+          <button id="toneFriendly" aria-pressed="true">Friendly</button>
+          <button id="toneFormal" aria-pressed="false">Formal</button>
+        </div>
+      </div>
+      <pre class="paper" id="agreementText"></pre>
+      <div class="row">
+        <button class="btn primary" id="send">Send for confirmation</button>
+        <button class="btn plain" id="back2">Back to terms</button>
+      </div>
+      <div class="linkbox hidden" id="linkbox">
+        <input id="confirmUrl" type="text" readonly aria-label="Confirmation link">
+        <button class="btn" id="copyLink">Copy link</button>
+        <a class="btn plain" id="waLink" target="_blank" rel="noopener">Send on WhatsApp</a>
+        <a class="btn plain" id="openLink" target="_blank" rel="noopener">Open as other party</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. proof -->
+  <section id="s4" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <h2 style="margin-bottom:6px">Evidence trail</h2>
+          <p class="muted" id="statusLine" style="margin:0"></p>
+        </div>
+        <div class="stamp ok" id="stamp">Intact</div>
+      </div>
+      <ol class="chain" id="chain"></ol>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Check a file</h3>
+        <p class="muted">Upload the original chat export. We tell you if its fingerprint is in a trail.</p>
+        <input id="verifyFile" type="file" accept=".txt,text/plain">
+        <div id="verifyResult"></div>
+      </div>
+      <div class="card">
+        <h3>Take it with you</h3>
+        <p class="muted">The bundle holds the chat, terms, agreement and every hash.</p>
+        <div class="row">
+          <a class="btn" id="bundle">Download evidence</a>
+          <button class="btn plain" id="refresh">Refresh status</button>
+        </div>
+        <p class="muted" style="margin-top:18px">For the demo: change a past entry and watch the check fail.</p>
+        <button class="btn danger small" id="tamper">Simulate tampering</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="muted">
+    Handshake records what you both already said. It is not legal advice. Stamp duty rules differ by state, so check yours before relying on an agreement in court.
+  </footer>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

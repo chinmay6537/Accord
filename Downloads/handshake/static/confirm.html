@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirm our agreement</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap" style="max-width:760px">
+  <header class="top">
+    <div>
+      <h1><span>Handshake</span></h1>
+      <p class="tagline" id="intro">Loading the agreement…</p>
+    </div>
+  </header>
+
+  <section class="card hidden" id="doc">
+    <h2 id="docTitle"></h2>
+    <pre class="paper" id="agreementText"></pre>
+    <p class="muted">Read it once. If it matches what we said on chat, confirm below. If not, suggest a change.</p>
+  </section>
+
+  <section class="card hidden" id="verify">
+    <h2>Confirm it is you</h2>
+    <label for="phone">Your phone number</label>
+    <input id="phone" type="tel" inputmode="tel" placeholder="98765 43210" autocomplete="tel">
+    <div class="row" style="margin-bottom:16px">
+      <button class="btn" id="getCode">Send me a code</button>
+      <span id="demoCode" class="tag yellow hidden"></span>
+    </div>
+
+    <div id="respond" class="hidden">
+      <label for="name">Your name</label>
+      <input id="name" type="text" autocomplete="name">
+      <label for="otp">6-digit code</label>
+      <input id="otp" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <label for="note">Anything to add? (needed if you suggest a change)</label>
+      <textarea id="note" class="short"></textarea>
+      <div class="row">
+        <button class="btn primary" id="agree">I agree</button>
+        <button class="btn plain" id="change">Suggest a change</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card accent hidden" id="done">
+    <h2 id="doneTitle"></h2>
+    <p id="doneText"></p>
+    <p class="muted">Your receipt (save it):</p>
+    <code class="hash" id="receipt"></code>
+  </section>
+
+  <footer class="muted">This is a record of your own conversation, not legal advice. Both sides get the same proof.</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const token = location.pathname.split("/").pop();
+
+function toast(msg, err = false) {
+  const t = document.createElement("div");
+  t.className = "toast" + (err ? " err" : "");
+  t.setAttribute("role", "status");
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Something went wrong");
+  return data;
+}
+
+(async () => {
+  try {
+    const d = await api(`/api/c/${token}`);
+    $("intro").textContent = `${d.parties.join(" and ")} agreed this on chat. Please check it.`;
+    $("docTitle").textContent = d.title;
+    $("agreementText").textContent = d.agreement;
+    $("doc").classList.remove("hidden");
+    if (d.status === "confirmed") { $("intro").textContent = "This agreement is already confirmed."; return; }
+    $("verify").classList.remove("hidden");
+  } catch (e) {
+    $("intro").textContent = e.message;
+  }
+})();
+
+$("getCode").addEventListener("click", async (e) => {
+  if ($("phone").value.replace(/\D/g, "").length < 10) return toast("Enter a 10-digit phone number", true);
+  e.target.disabled = true;
+  try {
+    const r = await api(`/api/c/${token}/otp`, { phone: $("phone").value });
+    if (r.demo_otp) { $("demoCode").textContent = "Demo code: " + r.demo_otp; $("demoCode").classList.remove("hidden"); }
+    else toast("Code sent");
+    $("respond").classList.remove("hidden");
+  } catch (err) { toast(err.message, true); }
+  finally { e.target.disabled = false; }
+});
+
+async function respond(action) {
+  if (action === "change" && !$("note").value.trim()) return toast("Tell us what to change", true);
+  try {
+    const r = await api(`/api/c/${token}/respond`, { name: $("name").value, otp: $("otp").value, action, note: $("note").value });
+    $("verify").classList.add("hidden");
+    $("doneTitle").textContent = r.status === "confirmed" ? "Confirmed. Thank you." : "Change request sent.";
+    $("doneText").textContent = r.status === "confirmed"
+      ? "Your confirmation is saved in the evidence trail. Both sides can now prove what was agreed."
+      : "The other side will see your note and update the agreement.";
+    $("receipt").textContent = r.receipt;
+    $("done").classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) { toast(err.message, true); }
+}
+$("agree").addEventListener("click", () => respond("agree"));
+$("change").addEventListener("click", () => respond("change"));
+</script>
+</body>
+</html>
