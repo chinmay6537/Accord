@@ -9,7 +9,9 @@ const FIELDS = [
 ];
 const FIELD_LABEL = { scope: "What was agreed", price: "Price", delivery: "Delivery", payment_terms: "Payment" };
 const KIND = {
-  chat_export: "Chat saved",
+  evidence_added: "Evidence added",
+  evidence_edited: "Evidence text or details edited",
+  evidence_removed: "Evidence removed from the analysis",
   terms_extracted: "Terms read from the chat",
   terms_confirmed: "Terms checked by you",
   agreement_generated: "Agreement written",
@@ -22,6 +24,13 @@ const STATUS = {
   sent: "Waiting for the other party",
   confirmed: "Confirmed by both sides",
   change_requested: "The other party asked for changes",
+};
+
+const SRC = { voice: "voice note", image: "screenshot", document: "document", note: "call note", file: "file" };
+const KIND_NAME = { chat: "Chat", voice: "Voice note", image: "Screenshot", document: "Document", note: "Note", file: "File" };
+const TEXT_STATUS = {
+  ready: ["Text read", "green"], typed: ["Typed by you", "green"], confirmed: ["Checked by you", "green"],
+  machine: ["Machine text: check it", "yellow"], needs_text: ["Needs text", "red"],
 };
 
 let deal = null;
@@ -79,7 +88,7 @@ document.addEventListener("click", (e) => {
   document.querySelectorAll(".cite").forEach((c) => c.setAttribute("aria-expanded", String(c.dataset.ids === b.dataset.ids && c === b)));
   $("sources").innerHTML = ids.map((i) => {
     const m = deal.messages.find((x) => x.id === i);
-    return m ? `<blockquote class="quote"><b>${esc(m.sender)}</b> on ${esc(m.date)}, ${esc(m.time)}<br>${esc(m.text)}</blockquote>` : "";
+    return m ? `<blockquote class="quote"><b>${esc(m.sender)}</b> on ${esc(m.date)}${m.time ? ", " + esc(m.time) : ""}${m.kind && m.kind !== "chat" ? ` <span class="tag">${esc(SRC[m.kind] || m.kind)}: ${esc(m.item_name)}</span>` : ""}<br>${esc(m.text)}</blockquote>` : "";
   }).join("");
   $("sources").scrollIntoView({ behavior: "smooth", block: "nearest" });
 });
@@ -163,27 +172,171 @@ function renderProof() {
   $("bundle").setAttribute("download", `evidence-${deal.id}.json`);
 }
 
-/* ---------- wiring ---------- */
-$("sample").addEventListener("click", async () => {
+/* ---------- step 1: evidence ---------- */
+const fmtSize = (n) => (n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+const fileUrl = (id) => `/api/cases/${deal.id}/items/${id}/file`;
+
+async function ensureCase() {
+  if (deal && deal.id) return deal.id;
+  deal = await api("/api/cases", json("POST", { title: $("title").value }));
+  history.replaceState(null, "", `?deal=${deal.id}`);
+  return deal.id;
+}
+
+async function postItems(fd) {
+  const id = await ensureCase();
+  const r = await api(`/api/cases/${id}/items`, { method: "POST", body: fd });
+  deal.status = "collecting";
+  renderEvidence(r);
+}
+
+function itemCard(it) {
+  const [stLabel, stCls] = TEXT_STATUS[it.text_status] || ["", ""];
+  let media = "";
+  if (it.kind === "voice") media = `<audio controls preload="none" src="${fileUrl(it.id)}"></audio>`;
+  else if (it.kind === "image" && it.mime !== "image/heic") media = `<img class="thumb" alt="${esc(it.name)}" src="${fileUrl(it.id)}">`;
+  const meta = [fmtSize(it.size), it.kind === "chat" ? `${it.message_count} messages` : ""].filter(Boolean).join(", ");
+
+  let body = "";
+  if (it.editable) {
+    const hint = it.text_status === "needs_text"
+      ? "We could not read this automatically. Type what it says (listen to the audio or read the image) so it counts."
+      : it.text_status === "machine" ? "Read by a machine. Fix any mistakes, then save to mark it as checked." : "";
+    body = `${hint ? `<p class="muted">${hint}</p>` : ""}
+      <label for="t_${it.id}">What it says</label>
+      <textarea id="t_${it.id}" class="f-text">${esc(it.text || "")}</textarea>`;
+  } else if (it.preview) {
+    body = `<pre class="peek">${esc(it.preview)}</pre>`;
+  }
+  const details = it.kind === "chat" ? "" : `
+    <div class="grid3">
+      <div><label for="l_${it.id}">Label</label><input id="l_${it.id}" class="f-label" type="text" value="${esc(it.label)}" placeholder="${esc(KIND_NAME[it.kind])}"></div>
+      <div><label for="w_${it.id}">Who said it</label><input id="w_${it.id}" class="f-speaker" type="text" value="${esc(it.speaker)}" placeholder="Suresh"></div>
+      <div><label for="d_${it.id}">When</label><input id="d_${it.id}" class="f-when" type="datetime-local" value="${esc(it.occurred_at)}"></div>
+    </div>`;
+  const save = it.kind === "chat" ? "" : `<button class="btn small primary" data-act="save" data-id="${it.id}">Save</button>`;
+  return `<article class="item" data-id="${it.id}">
+    <div class="item-head">
+      <h3>${esc(it.label || it.name)}</h3>
+      <div><span class="tag">${esc(KIND_NAME[it.kind])}</span><span class="tag ${stCls}">${esc(stLabel)}</span></div>
+    </div>
+    <div class="muted">${esc(it.name)}, ${meta}. Fingerprint <code title="${esc(it.sha256)}">${esc(it.sha256.slice(0, 12))}…</code></div>
+    ${media}${body}${details}
+    <div class="row" style="margin-top:6px">${save}
+      <a class="btn small plain" href="${fileUrl(it.id)}" target="_blank" rel="noopener">Open original</a>
+      <button class="btn small danger" data-act="remove" data-id="${it.id}">Remove</button>
+    </div>
+  </article>`;
+}
+
+function renderEvidence(r) {
+  $("count").textContent = r.items.length;
+  $("items").innerHTML = r.items.length ? r.items.map(itemCard).join("") : '<p class="muted">Nothing added yet.</p>';
+  const rd = r.readiness;
+  const lines = [
+    ...rd.blockers.map((t) => `<li class="block">${esc(t)}</li>`),
+    ...rd.warnings.map((t) => `<li>${esc(t)}</li>`),
+  ];
+  if (rd.can_analyze && !lines.length) lines.push(`<li class="ok">All ${rd.total} items are readable. ${rd.people.length ? "People found: " + esc(rd.people.join(", ")) + "." : ""}</li>`);
+  else if (rd.can_analyze && rd.people.length) lines.push(`<li class="ok">${rd.readable} of ${rd.total} items are readable. People found: ${esc(rd.people.join(", "))}.</li>`);
+  $("readiness").innerHTML = `<ul class="issues">${lines.join("")}</ul>`;
+  $("analyze").disabled = !rd.can_analyze;
+}
+
+function toggle(id, show) { $(id).classList.toggle("hidden", !show); }
+
+function addFiles(list) {
+  const files = [...list];
+  if (!files.length) return;
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f));
+  const label = files.length === 1 ? files[0].name : files.length + " files";
+  toast("Adding " + label + "…");
+  postItems(fd).then(() => toast("Added " + label)).catch((e) => toast(e.message, true));
+}
+
+const drop = $("drop");
+drop.addEventListener("click", () => $("files").click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("files").click(); } });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+$("files").addEventListener("change", (e) => { addFiles(e.target.files); e.target.value = ""; });
+
+$("noteBtn").addEventListener("click", () => { toggle("noteForm", true); toggle("pasteBox", false); $("nLabel").focus(); });
+$("pasteBtn").addEventListener("click", () => { toggle("pasteBox", true); toggle("noteForm", false); $("chat").focus(); });
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => toggle(b.dataset.close, false)));
+
+$("noteForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!$("nText").value.trim()) return toast("Write what was agreed", true);
+  const fd = new FormData();
+  fd.append("kind", "note");
+  fd.append("label", $("nLabel").value || "Note");
+  fd.append("speaker", $("nSpeaker").value);
+  fd.append("occurred_at", $("nWhen").value);
+  fd.append("text", $("nText").value);
   try {
-    $("chat").value = await (await fetch("/api/sample")).text();
-    $("title").value = "Wedding cards for Ravi";
-    toast("Sample chat loaded");
-  } catch { toast("Could not load the sample", true); }
+    await postItems(fd);
+    e.target.reset();
+    toggle("noteForm", false);
+    toast("Note added");
+  } catch (err) { toast(err.message, true); }
+});
+
+$("addPaste").addEventListener("click", (e) => busy(e.target, "Adding…", async () => {
+  if (!$("chat").value.trim()) throw new Error("Paste the chat first");
+  const fd = new FormData();
+  fd.append("kind", "chat");
+  fd.append("text", $("chat").value);
+  await postItems(fd);
+  $("chat").value = "";
+  toggle("pasteBox", false);
+  toast("Chat added");
+}));
+
+$("sample").addEventListener("click", (e) => busy(e.target, "Loading…", async () => {
+  const text = await (await fetch("/api/sample")).text();
+  const fd = new FormData();
+  fd.append("kind", "chat");
+  fd.append("name", "sample-chat.txt");
+  fd.append("text", text);
+  $("title").value = "Wedding cards for Ravi";
+  await postItems(fd);
+  toast("Sample chat added");
+}));
+
+$("items").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const card = btn.closest(".item");
+  try {
+    if (btn.dataset.act === "remove") {
+      if (!confirm("Remove this from the analysis? The original stays in the evidence trail.")) return;
+      renderEvidence(await api(`/api/cases/${deal.id}/items/${id}`, { method: "DELETE" }));
+      toast("Removed");
+    } else {
+      const body = {
+        label: card.querySelector(".f-label")?.value,
+        speaker: card.querySelector(".f-speaker")?.value,
+        occurred_at: card.querySelector(".f-when")?.value,
+        text: card.querySelector(".f-text")?.value,
+      };
+      renderEvidence(await api(`/api/cases/${deal.id}/items/${id}`, json("PUT", body)));
+      toast("Saved");
+    }
+  } catch (err) { toast(err.message, true); }
 });
 
 $("analyze").addEventListener("click", (e) => busy(e.target, "Reading…", async () => {
-  const fd = new FormData();
-  fd.append("title", $("title").value);
-  fd.append("chat_text", $("chat").value);
-  if ($("file").files[0]) fd.append("file", $("file").files[0]);
-  deal = await api("/api/deals", { method: "POST", body: fd });
-  history.replaceState(null, "", `?deal=${deal.id}`);
+  deal = await api(`/api/cases/${deal.id}/analyze`, json("POST", { title: $("title").value }));
   renderTerms();
   renderProof();
   showStep(2);
 }));
 
+/* ---------- wiring ---------- */
 $("toAgreement").addEventListener("click", (e) => busy(e.target, "Writing…", saveTermsAndMakeAgreement));
 $("back2").addEventListener("click", () => showStep(2));
 
@@ -233,7 +386,7 @@ $("verifyFile").addEventListener("change", async (e) => {
   } catch (err) { toast(err.message, true); }
 });
 
-document.querySelectorAll("#steps button").forEach((b) => b.addEventListener("click", () => { if (deal || +b.dataset.step === 1) showStep(+b.dataset.step); }));
+document.querySelectorAll("#steps button").forEach((b) => b.addEventListener("click", () => { if (+b.dataset.step === 1 || (deal && deal.terms)) showStep(+b.dataset.step); }));
 
 /* reopen a deal from ?deal=ID */
 (async () => {
@@ -242,6 +395,9 @@ document.querySelectorAll("#steps button").forEach((b) => b.addEventListener("cl
   try {
     deal = await api(`/api/deals/${id}`);
     tone = deal.tone || "friendly";
+    $("title").value = deal.title;
+    renderEvidence(await api(`/api/cases/${id}/items`));
+    if (!deal.terms) return;            // still collecting evidence
     renderTerms();
     renderProof();
     if (deal.agreement) {
@@ -255,7 +411,6 @@ document.querySelectorAll("#steps button").forEach((b) => b.addEventListener("cl
       }
       maxStep = 4;
       showStep(deal.status === "draft" ? 3 : 4);
-    }
-    else showStep(2);
+    } else if (deal.status === "draft") showStep(2);
   } catch { /* unknown deal: stay on step 1 */ }
 })();

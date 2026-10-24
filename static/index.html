@@ -16,25 +16,62 @@
   </header>
 
   <ol class="steps" id="steps">
-    <li><button data-step="1" aria-current="step">Chat<small>Paste or upload</small></button></li>
+    <li><button data-step="1" aria-current="step">Evidence<small>Add everything you have</small></button></li>
     <li><button data-step="2" disabled>Terms<small>Check what we found</small></button></li>
     <li><button data-step="3" disabled>Agreement<small>Send for confirmation</small></button></li>
     <li><button data-step="4" disabled>Proof<small>Evidence trail</small></button></li>
   </ol>
 
-  <!-- 1. chat -->
-  <section id="s1" class="card">
-    <h2>Start with the chat</h2>
-    <label for="title">Deal name</label>
-    <input id="title" type="text" value="Wedding cards for Ravi" maxlength="80">
-    <label for="chat">WhatsApp chat</label>
-    <textarea id="chat" placeholder="Paste the exported chat here, or upload the .txt file below."></textarea>
-    <label for="file">Or upload the export (.txt)</label>
-    <input id="file" type="file" accept=".txt,text/plain">
-    <p class="muted">In WhatsApp: open the chat, tap the name, then Export chat, then Without media.</p>
-    <div class="row">
-      <button class="btn primary" id="analyze">Read the chat</button>
-      <button class="btn plain" id="sample">Use sample chat</button>
+  <!-- 1. evidence -->
+  <section id="s1">
+    <div class="card">
+      <h2>Add your evidence</h2>
+      <label for="title">Deal name</label>
+      <input id="title" type="text" value="Wedding cards for Ravi" maxlength="80">
+
+      <div id="drop" class="drop" tabindex="0" role="button" aria-label="Add files">
+        Drop files here, or click to choose
+        <small>WhatsApp export (.txt or .zip), voice notes, screenshots, PDFs, Word files</small>
+      </div>
+      <input id="files" type="file" multiple class="hidden" aria-label="Choose files">
+
+      <div class="row">
+        <button class="btn plain" id="noteBtn">Add a note (call or in person)</button>
+        <button class="btn plain" id="pasteBtn">Paste a chat</button>
+        <button class="btn plain" id="sample">Use sample chat</button>
+      </div>
+
+      <form id="noteForm" class="hidden panel">
+        <h3>What was said, when you had no chat</h3>
+        <label for="nLabel">What was it?</label>
+        <input id="nLabel" type="text" placeholder="Phone call with Suresh" maxlength="60">
+        <div class="grid2">
+          <div><label for="nSpeaker">Who said it?</label><input id="nSpeaker" type="text" placeholder="Suresh" maxlength="60"></div>
+          <div><label for="nWhen">When?</label><input id="nWhen" type="datetime-local"></div>
+        </div>
+        <label for="nText">What was agreed</label>
+        <textarea id="nText" class="short" placeholder="He said the final price is 52,000 and delivery stays 25 Oct."></textarea>
+        <div class="row"><button class="btn primary" type="submit">Add note</button><button class="btn plain" type="button" data-close="noteForm">Cancel</button></div>
+      </form>
+
+      <div id="pasteBox" class="hidden panel">
+        <label for="chat">Paste the exported chat</label>
+        <textarea id="chat" placeholder="12/10/2026, 10:15 am - Suresh: ..."></textarea>
+        <div class="row"><button class="btn primary" id="addPaste">Add chat</button><button class="btn plain" data-close="pasteBox">Cancel</button></div>
+      </div>
+
+      <p class="muted">WhatsApp chat export: open the chat, tap the name, Export chat. "With media" gives a .zip with the voice notes and photos inside; we unpack it for you.</p>
+    </div>
+
+    <div class="card">
+      <h2>Your evidence <span class="tag" id="count">0</span></h2>
+      <div id="items"><p class="muted">Nothing added yet.</p></div>
+    </div>
+
+    <div class="card accent">
+      <h2>Ready to read?</h2>
+      <div id="readiness"></div>
+      <button class="btn primary" id="analyze" disabled>Read the evidence</button>
     </div>
   </section>
 

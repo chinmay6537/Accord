@@ -10,7 +10,10 @@ import re
 
 MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-5-5")
 
-SYSTEM = """You extract contract terms from informal business chats (English, Hindi, Kannada, Hinglish).
+SYSTEM = """You extract contract terms from informal business evidence (English, Hindi, Kannada, Hinglish).
+Each line is "[id] date time sender (source): text". The source is chat, voice note, call note, document or
+screenshot. Voice-note and screenshot text are machine transcripts and may contain errors: if a key number or
+date looks doubtful, flag it under "ambiguities" instead of trusting it.
 Return ONLY JSON, no markdown, in exactly this shape:
 {
  "parties": [{"name": "", "role": "", "source_ids": []}],
@@ -108,7 +111,7 @@ def _inr(v: float) -> str:
 
 def extract_rules(msgs: list[dict]) -> dict:
     full = "\n".join(m["text"].lower() for m in msgs)
-    senders = list(dict.fromkeys(m["sender"] for m in msgs))
+    senders = list(dict.fromkeys(m["sender"] for m in msgs if m.get("party", True)))
     parties = [{"name": s, "role": "Party", "source_ids": [m["id"] for m in msgs if m["sender"] == s][:1]}
                for s in senders]
 
@@ -261,7 +264,10 @@ def extract_rules(msgs: list[dict]) -> dict:
 def extract_claude(msgs: list[dict]) -> dict:
     import anthropic
 
-    chat = "\n".join(f"[{m['id']}] {m['date']} {m['time']} {m['sender']}: {m['text']}" for m in msgs)
+    SRC = {"chat": "chat", "voice": "voice note", "image": "screenshot", "document": "document", "note": "call note", "file": "file"}
+    chat = "\n".join(
+        f"[{m['id']}] {m['date']} {m['time']} {m['sender']} ({SRC.get(m.get('kind', 'chat'), 'chat')}): {m['text']}"
+        for m in msgs)
     client = anthropic.Anthropic()
     r = client.messages.create(model=MODEL, max_tokens=2500, system=SYSTEM,
                                messages=[{"role": "user", "content": chat}])

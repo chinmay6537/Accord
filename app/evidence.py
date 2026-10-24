@@ -67,7 +67,7 @@ def get_chain(deal_id: str) -> list[dict]:
     return [_row_to_entry(r) for r in rows]
 
 
-def verify(deal_id: str, chat_text: str | None = None) -> dict:
+def verify(deal_id: str) -> dict:
     """Recompute every hash. Returns validity and the first broken entry (if any)."""
     chain = get_chain(deal_id)
     prev = GENESIS
@@ -78,14 +78,9 @@ def verify(deal_id: str, chat_text: str | None = None) -> dict:
             break
         prev = e["entry_hash"]
 
-    chat_ok = None
-    if chat_text is not None and chain and chain[0]["kind"] == "chat_export":
-        chat_ok = sha(chat_text.encode()) == chain[0]["content_hash"]
-
     return {
-        "valid": broken_at is None and chat_ok is not False,
+        "valid": broken_at is None,
         "broken_at": broken_at,
-        "chat_matches": chat_ok,
         "length": len(chain),
         "head": chain[-1]["entry_hash"] if chain else GENESIS,
     }
@@ -94,6 +89,11 @@ def verify(deal_id: str, chat_text: str | None = None) -> dict:
 def find_by_content_hash(h: str) -> list[dict]:
     with conn() as c:
         rows = c.execute(
-            "SELECT deal_id, seq, kind, ts FROM evidence WHERE content_hash=?", (h,)
+            "SELECT deal_id, seq, kind, ts, meta FROM evidence WHERE content_hash=?", (h,)
         ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["meta"] = json.loads(d["meta"])
+        out.append(d)
+    return out

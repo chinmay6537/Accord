@@ -15,6 +15,26 @@ uvicorn app.main:app --reload
 
 Open http://localhost:8000 and press **Use sample chat**.
 
+## The evidence page (step 1)
+
+Everything the deal rests on goes in here, and each item is fingerprinted (SHA-256) the moment it lands.
+
+| You add | What happens |
+|---|---|
+| WhatsApp `.txt` export or pasted chat | Parsed into numbered, time-stamped messages |
+| WhatsApp `.zip` ("with media") | Unpacked: chat, voice notes and photos become separate items |
+| Voice note (.opus, .mp3, .m4a ...) | Whisper transcript if `OPENAI_API_KEY` is set (marked "machine text, check it"); otherwise you type what it says |
+| Screenshot (.png, .jpg) | Claude reads the text if `ANTHROPIC_API_KEY` is set; otherwise you type it |
+| PDF / Word / text file | Text is read; a scanned PDF asks you to type it |
+| Typed note (call, in person) | Stored as evidence with who said it and when |
+
+Items from different sources are merged into one timeline by their dates, so a later voice note or call
+can correctly override a price in the chat. A checklist tells you what's missing before you press
+**Read the evidence**. Removing an item stops it being used but keeps the original and logs the removal.
+Re-hashing every stored file on each page load means a swapped or edited file turns the proof red.
+
+Voice-note transcription and screenshot reading need API keys and were not run against the live services here.
+
 No API key? It still works: a built-in rules engine reads the sample chat. To switch to Claude (much better
 on messy Hinglish/Kannada), set the key before starting the server:
 
@@ -48,14 +68,14 @@ and/or anchor it with OpenTimestamps.
 app/        FastAPI backend (parser, extract, agreement, evidence chain, endpoints)
 static/     index.html, confirm.html, app.js, style.css (no build step)
 samples/    Hinglish sample chat
-tests/      end-to-end API test (pytest)
+tests/      API tests for the whole flow and the evidence page (pytest)
 ```
 
 Run the test: `python -m pytest -q tests`
 
 ## Not built yet
 
-- Voice notes (Whisper) and screenshot OCR
+- Local (offline) speech-to-text
 - Real SMS/WhatsApp OTP (set `DEMO_MODE=0` and plug a provider into `party_otp`)
 - State-wise stamp duty estimator and Section 63 BSA certificate draft
 - PDF export of the agreement and evidence bundle
