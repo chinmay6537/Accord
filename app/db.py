@@ -30,6 +30,23 @@ def init():
                 otp TEXT,
                 created TEXT
             );
+            CREATE TABLE IF NOT EXISTS items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                deal_id TEXT,
+                kind TEXT,
+                name TEXT,
+                label TEXT,
+                mime TEXT,
+                size INTEGER,
+                sha256 TEXT,
+                path TEXT,
+                text TEXT,
+                text_status TEXT,
+                occurred_at TEXT,
+                speaker TEXT,
+                added TEXT,
+                removed INTEGER DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS evidence (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 deal_id TEXT,
