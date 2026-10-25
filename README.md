@@ -5,6 +5,56 @@ Turn a WhatsApp deal into a clear agreement both sides confirm, with a tamper-ev
 **Flow:** paste chat → terms found (with citations) → gaps flagged with ready-to-send friendly messages →
 plain-language agreement → other party confirms by link + OTP → hash-chained proof anyone can verify.
 
+## Who is who
+
+| Role | Lands on | Can do |
+|---|---|---|
+| **Dealer** | `/dealer` | Dashboard: overview, tickets (history of every request), customers, segments, new ticket. Builds the evidence and agreement at `/ticket/<id>`. |
+| **Customer** | `/customer` | View-only. Sees requests dealers sent them, checks every term against the messages behind it, chats with the dealer, then approves or asks for a change. Cannot create tickets. |
+| Anyone with a link | `/c/<token>` | Confirms with a phone code, no account needed (the original flow). |
+
+A **ticket** is one deal with one customer. Flow: dealer opens *New ticket* (title, customer, description, optional
+details) -> adds evidence -> reads terms -> builds the agreement -> sends. The customer sees it in their portal.
+
+**Linking customers to accounts:** the dealer saves a customer and gets a private invite link
+(`/join/<token>`, shown on the customer's page). The customer signs up through it, which connects their account to
+that dealer's records. We deliberately do *not* match by email or phone, because neither is verified.
+
+## Customer review (verify, then approve)
+
+Open a request at `/customer`. For each term (what was agreed, price, delivery, payment) the customer sees the value,
+the exact messages it came from, how it changed along the way, and a warning if the dealer edited it by hand.
+They mark each term "matches my records" or "does not match" (with a note), can press **Ask the dealer about this**
+to prefill the chat, and see the proof status, evidence fingerprints and step trail.
+**Approve stays disabled until every agreed term is marked as matching** (also enforced on the server). If anything
+does not match they use **Ask for changes**. Their checks are saved into the hash chain with the answer.
+Customers only see messages cited behind a term, never the dealer's private notes or the whole evidence.
+
+```
+GET  /api/my/tickets               GET /api/my/tickets/{id}   (full review payload)
+PUT  /api/my/tickets/{id}/checks/{scope|price|delivery|payment_terms}  {result: match|mismatch|clear, note}
+POST /api/my/tickets/{id}/respond  {action: agree|change, note}
+```
+
+## Landing and auth pages
+
+The landing page (`static/landing.html`) shows a free demo through `POST /api/demo` (no login, rules engine only, 8 tries a minute, nothing saved). Everything after the demo needs an account. Replace the pages freely, but keep the routes and this API:
+
+## Auth API (used by `static/js/auth.js`)
+
+Restyle freely, but keep the routes `/`, `/login`, `/signup`, `/join/<token>` and call:
+
+```
+POST /api/auth/signup  {name, email, password, role: "dealer"|"customer", phone?, business_name?, invite_token?}
+POST /api/auth/login   {email, password}
+POST /api/auth/logout
+GET  /api/auth/me
+GET  /api/join/<token>   -> {customer_name, dealer_name, business_name}   (for the invite banner)
+```
+Signup and login answer `{id, name, role, home}` and set an HttpOnly session cookie; send the browser to `home`
+(`/dealer` or `/customer`). On `/join/<token>` the page should sign up with `role: "customer"` and `invite_token`.
+Errors come back as `{detail: "message"}` with a 4xx status.
+
 ## Run it
 
 ```bash
@@ -13,7 +63,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000 and press **Use sample chat**.
+Open http://localhost:8000, sign up as a dealer, create a ticket, and press **Use sample chat** on the evidence page.
 
 ## The evidence page (step 1)
 
@@ -65,17 +115,48 @@ and/or anchor it with OpenTimestamps.
 ## Layout
 
 ```
-app/        FastAPI backend (parser, extract, agreement, evidence chain, endpoints)
-static/     index.html, confirm.html, app.js, style.css (no build step)
-samples/    Hinglish sample chat
-tests/      API tests for the whole flow and the evidence page (pytest)
+app/                 Python backend (FastAPI + SQLite)
+  main.py              page routes + the evidence/agreement workflow API
+  routes_auth.py       signup, login, logout, me, invite lookup
+  routes_demo.py       PUBLIC landing-page demo (rules engine only, rate limited, saves nothing)
+  routes_dealer.py     overview, tickets, customers, segments
+  routes_customer.py   customer review: terms, references, checks, approve / ask for change
+  routes_thread.py     chat + comments on a ticket
+  proof.py             chain + stored-file verification shared by dealer and customer
+  auth.py common.py    sessions, passwords, shared helpers
+  ingest.py parser.py extract.py agreement.py evidence.py db.py
+static/              Frontend. Every page = one .html shell + the shared css + one page script
+  css/style.css        THE design system (black and white neo-brutalism). Only stylesheet.
+  js/common.js         shared helpers: esc, api, J, toast, day, when, copy (load first)
+  js/thread.js         chat component used by dealer and customer pages
+  landing.html   js/landing.js    public page with the free demo
+  login.html     js/auth.js       log in, sign up, customer invite (/join/<token>)
+  dealer.html    js/dealer.js     dealer dashboard (sidebar)
+  customer.html  js/customer.js   customer portal (sidebar), verify then approve
+  ticket.html    js/ticket.js     evidence -> terms -> agreement -> proof (/ticket/<id>)
+  confirm.html   js/confirm.js    no-account confirmation link (/c/<token>)
+samples/             Hinglish sample chat
+tests/               API tests for the whole flow (pytest)
 ```
+
+## Design rules (keep every new screen on these)
+
+- **Black and white only.** No colours. Meaning comes from shape and text:
+  solid black = done/confirmed, dashed grey = pending/notice, stripes = problem/needs attention.
+  (The class names `tag green / yellow / red` are kept; the stylesheet turns them into those three looks.)
+- Thick 3px black borders, hard offset shadows, no rounded corners, Archivo + JetBrains Mono.
+- Use the existing classes (`.card`, `.btn`, `.btn.primary`, `.tag`, `.field`, `.grid2`, `.row`, `.note`, `.gate`).
+  Do not add per-page stylesheets or inline colours.
+- Pages without a sidebar use the `.topbar`; dashboards use the `.shell` + `.side` sidebar.
 
 Run the test: `python -m pytest -q tests`
 
 ## Not built yet
 
 - Local (offline) speech-to-text
+- Email/phone verification, password reset
+- Dealer revises the agreement after the customer asks for a change, then re-sends
+- Notifications when a customer replies (chat updates by polling every 4 s)
 - Real SMS/WhatsApp OTP (set `DEMO_MODE=0` and plug a provider into `party_otp`)
 - State-wise stamp duty estimator and Section 63 BSA certificate draft
 - PDF export of the agreement and evidence bundle

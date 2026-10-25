@@ -9,12 +9,16 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import db, evidence, ingest
+from . import auth, db, evidence, ingest
+from .proof import items as _items, verification as _verification
+from . import routes_auth, routes_customer, routes_dealer, routes_demo, routes_thread
+from .auth import current_user, need_dealer
+from .common import dealer_deal, get_deal as _deal, now as _now, set_deal as _set
 from .agreement import build_agreement
 from .extract import extract_terms
 from .parser import clean, parse_chat
@@ -30,24 +34,11 @@ OPEN_STATES = ("collecting", "draft")  # evidence can be added or changed only b
 app = FastAPI(title="Handshake to Contract")
 db.init()
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+for _r in (routes_auth.router, routes_auth.join, routes_dealer.router, routes_customer.router, routes_demo.router, routes_thread.router):
+    app.include_router(_r)
 
 
 # ------------------------------------------------------------------ helpers
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _deal(deal_id: str) -> dict:
-    with db.conn() as c:
-        r = c.execute("SELECT * FROM deals WHERE id=?", (deal_id,)).fetchone()
-    if not r:
-        raise HTTPException(404, "Deal not found")
-    d = dict(r)
-    for k in ("messages", "terms"):
-        d[k] = json.loads(d[k]) if d[k] else None
-    return d
-
 
 def _by_token(token: str) -> dict:
     with db.conn() as c:
@@ -57,36 +48,18 @@ def _by_token(token: str) -> dict:
     return _deal(r["id"])
 
 
-def _set(deal_id: str, **fields):
-    cols = ", ".join(f"{k}=?" for k in fields)
-    with db.conn() as c:
-        c.execute(f"UPDATE deals SET {cols} WHERE id=?", (*fields.values(), deal_id))
-
-
 def _hash_json(obj) -> bytes:
     return json.dumps(obj, sort_keys=True, ensure_ascii=False).encode()
 
 
-def _open_deal(deal_id: str) -> dict:
-    d = _deal(deal_id)
+def _open_deal(deal_id: str, user: dict) -> dict:
+    d = dealer_deal(deal_id, user)
     if d["status"] not in OPEN_STATES:
         raise HTTPException(409, "This deal was already sent. Start a new case to change the evidence.")
     return d
 
 
 # ---- evidence items
-
-def _items(deal_id: str, include_removed: bool = False) -> list[dict]:
-    q = "SELECT * FROM items WHERE deal_id=?" + ("" if include_removed else " AND removed=0") + " ORDER BY id"
-    with db.conn() as c:
-        rows = c.execute(q, (deal_id,)).fetchall()
-    out = []
-    for r in rows:
-        d = dict(r)
-        d["removed"] = bool(d["removed"])
-        out.append(d)
-    return out
-
 
 def _item(deal_id: str, item_id: int) -> dict:
     with db.conn() as c:
@@ -170,22 +143,6 @@ def _add_evidence(deal_id: str, name: str, data: bytes, hint: str | None = None,
     return created
 
 
-def _verification(deal_id: str) -> dict:
-    """Chain check plus a re-hash of every stored file against what the chain recorded."""
-    v = evidence.verify(deal_id)
-    expected = {e["meta"].get("item_id"): e["content_hash"]
-                for e in evidence.get_chain(deal_id) if e["kind"] == "evidence_added"}
-    bad = []
-    for it in _items(deal_id, include_removed=True):
-        p = Path(it["path"]) if it["path"] else None
-        ok = bool(p and p.is_file() and evidence.sha(p.read_bytes()) == it["sha256"] == expected.get(it["id"]))
-        if not ok:
-            bad.append(it["id"])
-    v["bad_files"] = bad
-    v["valid"] = v["valid"] and not bad
-    return v
-
-
 def _public(d: dict) -> dict:
     return {
         "id": d["id"], "title": d["title"], "status": d["status"], "messages": d["messages"],
@@ -197,9 +154,42 @@ def _public(d: dict) -> dict:
 
 # ------------------------------------------------------------------ pages
 
+def _page(request: Request, file: str, role: str | None = None):
+    """Serve a page. Not logged in -> /login. Wrong role -> that person's own home."""
+    u = current_user(request)
+    if not u:
+        return RedirectResponse("/login")
+    if role and u["role"] != role:
+        return RedirectResponse(auth.home_for(u))
+    return FileResponse(STATIC / file)
+
+
 @app.get("/")
-def home():
-    return FileResponse(STATIC / "index.html")
+def landing(request: Request):
+    u = current_user(request)
+    return RedirectResponse(auth.home_for(u)) if u else FileResponse(STATIC / "landing.html")
+
+
+@app.get("/login")
+@app.get("/signup")
+@app.get("/join/{token}")
+def login_page(token: str = ""):
+    return FileResponse(STATIC / "login.html")
+
+
+@app.get("/dealer")
+def dealer_page(request: Request):
+    return _page(request, "dealer.html", "dealer")
+
+
+@app.get("/customer")
+def customer_page(request: Request):
+    return _page(request, "customer.html", "customer")
+
+
+@app.get("/ticket/{deal_id}")
+def workflow_page(request: Request, deal_id: str):
+    return _page(request, "ticket.html", "dealer")
 
 
 @app.get("/api/sample")
@@ -215,38 +205,18 @@ def confirm_page(token: str):
 
 # ------------------------------------------------------------------ evidence collection
 
-def _new_case(title: str) -> str:
-    deal_id = uuid.uuid4().hex[:8]
-    with db.conn() as c:
-        c.execute(
-            "INSERT INTO deals (id,title,status,chat_text,tone,token,created) VALUES (?,?,?,?,?,?,?)",
-            (deal_id, title.strip()[:80] or "Untitled deal", "collecting", "", "friendly",
-             secrets.token_urlsafe(8), _now()),
-        )
-    return deal_id
-
-
-class CaseIn(BaseModel):
-    title: str = ""
-
-
-@app.post("/api/cases")
-def create_case(body: CaseIn):
-    return _public(_deal(_new_case(body.title)))
-
-
 @app.get("/api/cases/{deal_id}/items")
-def list_items(deal_id: str):
-    _deal(deal_id)
+def list_items(deal_id: str, user: dict = Depends(need_dealer)):
+    dealer_deal(deal_id, user)
     return _evidence_state(deal_id)
 
 
 @app.post("/api/cases/{deal_id}/items")
-async def add_items(deal_id: str, kind: str = Form(""), name: str = Form(""), label: str = Form(""),
+async def add_items(deal_id: str, user: dict = Depends(need_dealer), kind: str = Form(""), name: str = Form(""), label: str = Form(""),
                     occurred_at: str = Form(""), speaker: str = Form(""), text: str = Form(""),
                     files: list[UploadFile] = File(default=[])):
     """Add files (any number), pasted chat text (kind=chat) or a typed note (kind=note)."""
-    d = _open_deal(deal_id)
+    d = _open_deal(deal_id, user)
     added = 0
     for f in files:
         if f.filename:
@@ -274,8 +244,8 @@ class ItemEdit(BaseModel):
 
 
 @app.put("/api/cases/{deal_id}/items/{item_id}")
-def edit_item(deal_id: str, item_id: int, body: ItemEdit):
-    d = _open_deal(deal_id)
+def edit_item(deal_id: str, item_id: int, body: ItemEdit, user: dict = Depends(need_dealer)):
+    d = _open_deal(deal_id, user)
     it = _item(deal_id, item_id)
     if it["removed"]:
         raise HTTPException(400, "This item was removed")
@@ -306,8 +276,8 @@ def edit_item(deal_id: str, item_id: int, body: ItemEdit):
 
 
 @app.delete("/api/cases/{deal_id}/items/{item_id}")
-def remove_item(deal_id: str, item_id: int):
-    d = _open_deal(deal_id)
+def remove_item(deal_id: str, item_id: int, user: dict = Depends(need_dealer)):
+    d = _open_deal(deal_id, user)
     it = _item(deal_id, item_id)
     if not it["removed"]:
         with db.conn() as c:
@@ -324,7 +294,8 @@ INLINE_OK = ("audio/", "image/png", "image/jpeg", "image/webp", "image/gif")
 
 
 @app.get("/api/cases/{deal_id}/items/{item_id}/file")
-def item_file(deal_id: str, item_id: int):
+def item_file(deal_id: str, item_id: int, user: dict = Depends(need_dealer)):
+    dealer_deal(deal_id, user)
     it = _item(deal_id, item_id)
     p = Path(it["path"])
     if not p.is_file():
@@ -341,8 +312,8 @@ class AnalyzeIn(BaseModel):
 
 
 @app.post("/api/cases/{deal_id}/analyze")
-def analyze(deal_id: str, body: AnalyzeIn):
-    d = _open_deal(deal_id)
+def analyze(deal_id: str, body: AnalyzeIn, user: dict = Depends(need_dealer)):
+    d = _open_deal(deal_id, user)
     msgs = ingest.build_messages(_items(deal_id))
     if not msgs:
         raise HTTPException(400, "Nothing readable yet. Add a chat, or type what was said in your voice notes.")
@@ -361,22 +332,24 @@ def analyze(deal_id: str, body: AnalyzeIn):
 
 @app.post("/api/deals")
 async def create_deal(title: str = Form("Untitled deal"), chat_text: str = Form(""),
-                      file: UploadFile | None = File(None)):
-    """One-shot: chat in, terms out. Kept for scripts and tests; the UI uses /api/cases."""
+                      file: UploadFile | None = File(None), user: dict = Depends(need_dealer)):
+    """One-shot: chat in, terms out, no customer attached. Kept for scripts and tests; the UI uses /api/tickets."""
     if file is not None and file.filename:
         raw, fname = await file.read(), file.filename
     else:
         raw, fname = clean(chat_text).strip().encode(), "pasted-chat.txt"
     if len(parse_chat(raw.decode("utf-8", errors="ignore"))) < 2:
         raise HTTPException(400, "Could not read any messages. Use WhatsApp > Export chat > Without media.")
-    deal_id = _new_case(title)
+    deal_id = routes_dealer.new_ticket(user, {
+        "title": title.strip()[:80] or "Untitled deal", "customer_id": None, "description": "", "deal_type": "other",
+        "est_value": None, "advance": None, "due_date": "", "gst": "", "priority": "normal", "channel": "", "notes": ""})
     _add_evidence(deal_id, fname, raw, hint="chat")
-    return analyze(deal_id, AnalyzeIn())
+    return analyze(deal_id, AnalyzeIn(), user)
 
 
 @app.get("/api/deals/{deal_id}")
-def get_deal(deal_id: str):
-    return _public(_deal(deal_id))
+def get_deal(deal_id: str, user: dict = Depends(need_dealer)):
+    return _public(dealer_deal(deal_id, user))
 
 
 class TermEdits(BaseModel):
@@ -387,13 +360,17 @@ class TermEdits(BaseModel):
 
 
 @app.put("/api/deals/{deal_id}/terms")
-def save_terms(deal_id: str, edits: TermEdits):
-    d = _deal(deal_id)
+def save_terms(deal_id: str, edits: TermEdits, user: dict = Depends(need_dealer)):
+    d = dealer_deal(deal_id, user)
     if not d["terms"]:
         raise HTTPException(400, "Read the evidence first")
     terms = d["terms"]
     for k, v in edits.model_dump().items():
-        terms[k]["value"] = v.strip()
+        v, t = v.strip(), terms[k]
+        if v != (t.get("value") or ""):
+            t.setdefault("extracted_value", t.get("value") or "")   # what the evidence itself produced
+            t["value"] = v
+        t["edited"] = t["value"] != t.get("extracted_value", t["value"])
     _set(deal_id, terms=json.dumps(terms))
     evidence.append(deal_id, "terms_confirmed", _hash_json(terms), {"by": "owner"})
     return _public(_deal(deal_id))
@@ -404,8 +381,8 @@ class ToneIn(BaseModel):
 
 
 @app.post("/api/deals/{deal_id}/agreement")
-def make_agreement(deal_id: str, body: ToneIn):
-    d = _deal(deal_id)
+def make_agreement(deal_id: str, body: ToneIn, user: dict = Depends(need_dealer)):
+    d = dealer_deal(deal_id, user)
     if not d["terms"]:
         raise HTTPException(400, "Read the evidence first")
     tone = body.tone if body.tone in ("friendly", "formal") else "friendly"
@@ -416,11 +393,11 @@ def make_agreement(deal_id: str, body: ToneIn):
 
 
 @app.post("/api/deals/{deal_id}/send")
-def send_for_confirmation(deal_id: str, request: Request):
-    d = _deal(deal_id)
+def send_for_confirmation(deal_id: str, request: Request, user: dict = Depends(need_dealer)):
+    d = dealer_deal(deal_id, user)
     if not d["agreement"]:
         raise HTTPException(400, "Generate the agreement first")
-    _set(deal_id, status="sent")
+    _set(deal_id, status="sent", sent_at=_now())
     evidence.append(deal_id, "owner_approved", d["agreement"].encode(), {"by": "owner"})
     out = _public(_deal(deal_id))
     out["confirm_url"] = f"{str(request.base_url).rstrip('/')}/c/{d['token']}"
@@ -428,8 +405,8 @@ def send_for_confirmation(deal_id: str, request: Request):
 
 
 @app.get("/api/deals/{deal_id}/bundle")
-def bundle(deal_id: str):
-    d = _deal(deal_id)
+def bundle(deal_id: str, user: dict = Depends(need_dealer)):
+    d = dealer_deal(deal_id, user)
     data = {
         "notice": "Evidence bundle. Verify by recomputing each entry_hash from its fields and prev_hash, and each "
                   "file's sha256 from the original file. Not legal advice; check stamp duty and validity for your state.",
@@ -445,8 +422,9 @@ def bundle(deal_id: str):
 
 
 @app.post("/api/deals/{deal_id}/demo-tamper")
-def demo_tamper(deal_id: str):
+def demo_tamper(deal_id: str, user: dict = Depends(need_dealer)):
     """Demo only: silently edits one past log entry so the verifier can catch it."""
+    dealer_deal(deal_id, user)
     if not DEMO_MODE:
         raise HTTPException(403, "Disabled")
     chain = evidence.get_chain(deal_id)

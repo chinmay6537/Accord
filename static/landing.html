@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Handshake: from chat to commitment</title>
+  <meta name="description" content="Paste a WhatsApp deal and see the agreement inside it. Sign up to send it for confirmation and keep proof nobody can quietly change.">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/">Handshake</a>
+    <nav class="toplinks" aria-label="Main">
+      <a class="link" href="/login">Log in</a>
+      <a class="btn small primary" href="/signup">Sign up</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="grid2">
+      <div>
+        <p class="eyebrow">From chat to commitment</p>
+        <h1>Your WhatsApp deal, as a clear agreement.</h1>
+        <p class="lead">See the price, delivery and payment your chat really contains. Then both sides confirm it and keep proof nobody can change.</p>
+        <div class="row">
+          <a class="btn primary big" href="#demo">Try it free</a>
+          <a class="btn big" href="/signup">Sign up</a>
+        </div>
+      </div>
+      <div class="receipt" aria-label="Example of a finished agreement">
+        <div class="rh"><span>EXAMPLE</span><span>CONFIRMED BY BOTH</span></div>
+        <div class="rr"><span>What</span><span>600 wedding cards</span></div>
+        <div class="rr"><span>Price</span><span>₹54,000 + GST</span></div>
+        <div class="rr"><span>Delivery</span><span>25 Oct</span></div>
+        <div class="rr"><span>Payment</span><span>₹20,000 advance</span></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="block" id="demo" aria-labelledby="demoTitle">
+    <div class="wrap">
+      <h2 id="demoTitle">Try it on a real chat</h2>
+      <p class="sub">A sample chat is loaded. Press the button to see what was agreed. Nothing is saved.</p>
+
+      <div class="card demo2">
+        <div class="pane">
+          <label for="chat">The chat</label>
+          <textarea id="chat" placeholder="Paste a WhatsApp export here"></textarea>
+          <div class="row">
+            <button class="btn primary" id="run" type="button">Find the agreement</button>
+            <button class="textbtn" id="sample" type="button">Use the sample chat</button>
+          </div>
+          <p class="formerr hidden" id="err" role="alert" style="margin:14px 0 0"></p>
+        </div>
+
+        <div class="pane out" id="out" aria-live="polite">
+          <div class="empty" id="idle"><b>Your agreement shows up here</b><span>Press "Find the agreement".</span></div>
+          <div id="res" hidden>
+            <p class="meta"><span class="tag fill">DEMO</span> <span id="meta"></span></p>
+            <div id="terms"></div>
+            <p class="open" id="open"></p>
+            <div class="locked">
+              <b>Want the full agreement?</b>
+              <span>Send it for confirmation and keep proof nobody can change.</span>
+              <a class="btn primary small" href="/signup">Sign up free</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="featTitle">
+    <div class="wrap">
+      <h2 id="featTitle">With an account</h2>
+      <div class="grid3 even" style="margin-top:20px">
+        <div class="card fill"><h3>Both sides confirm</h3><p>The other person checks every term against the messages and approves.</p></div>
+        <div class="card fill"><h3>Proof that stays put</h3><p>Every step is fingerprinted. Change the past and the proof visibly breaks.</p></div>
+        <div class="card fill"><h3>All your evidence</h3><p>Chats, voice notes, screenshots and call notes in one timeline.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <div class="wrap">
+      <h2>Stop arguing about what was said.</h2>
+      <div class="row"><a class="btn light invert big" href="/signup">Sign up free</a><a class="btn light big" href="/login">Log in</a></div>
+    </div>
+  </div>
+</main>
+
+<footer class="foot"><div class="wrap muted">Handshake. Not legal advice. It helps you keep a clear record; enforceability and stamp duty depend on your state.</div></footer>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/landing.js"></script>
+</body>
+</html>

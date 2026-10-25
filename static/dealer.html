@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Handshake: dealer</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="app">
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/">Handshake</a>
+    <a class="btn primary" href="#/new">+ New ticket</a>
+    <nav aria-label="Dealer menu">
+      <a href="#/" data-nav="">Overview</a>
+      <a href="#/tickets" data-nav="tickets">Tickets</a>
+      <a href="#/customers" data-nav="customers">Customers</a>
+      <a href="#/segments" data-nav="segments">Segments</a>
+    </nav>
+    <div class="who">
+      <b id="whoName"></b>
+      <span class="muted" id="whoBiz"></span>
+      <button class="btn small plain" id="logout">Log out</button>
+    </div>
+  </aside>
+  <main id="view" tabindex="-1"><p class="muted">Loading…</p></main>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/thread.js"></script>
+<script src="/static/js/dealer.js"></script>
+</body>
+</html>

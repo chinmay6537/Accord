@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Handshake: log in or sign up</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="auth">
+  <aside class="auth-side">
+    <a class="brand" href="/">Handshake</a>
+    <h2>Stop arguing about what was said.</h2>
+    <ul>
+      <li><span class="ic">1</span><div><b>Bring the chat</b>WhatsApp, voice notes, screenshots.</div></li>
+      <li><span class="ic">2</span><div><b>Both sides confirm</b>Every term is checked against the messages.</div></li>
+      <li><span class="ic">3</span><div><b>Keep the proof</b>A record nobody can quietly change.</div></li>
+    </ul>
+    <p class="small">Not legal advice. Handshake helps you keep a clear record of what you both agreed.</p>
+  </aside>
+
+  <main class="auth-main">
+    <div class="auth-box">
+      <div class="seg full" role="group" aria-label="Log in or sign up" style="margin-bottom:22px">
+        <button type="button" id="tabLogin" aria-pressed="true">Log in</button>
+        <button type="button" id="tabSignup" aria-pressed="false">Sign up</button>
+      </div>
+
+      <h1 id="title">Welcome back</h1>
+      <p class="lead" id="lead">Log in to see your agreements.</p>
+
+      <div id="invite" class="note hidden"></div>
+      <div id="formError" class="formerr hidden" role="alert"></div>
+
+      <form id="form" novalidate>
+        <div id="signupOnly" class="hidden">
+          <label id="roleLabel">I am a</label>
+          <div class="roles" role="group" aria-labelledby="roleLabel">
+            <button type="button" class="role" id="roleDealer" aria-pressed="true"><b>Dealer</b><span>I send agreements to customers</span></button>
+            <button type="button" class="role" id="roleCustomer" aria-pressed="false"><b>Customer</b><span>I check and approve agreements</span></button>
+          </div>
+          <div class="field" id="fName"><label for="name">Your name</label><input id="name" type="text" autocomplete="name" maxlength="80"><div class="error"></div></div>
+          <div class="field" id="fBiz"><label for="biz">Business name</label><input id="biz" type="text" autocomplete="organization" maxlength="80"><div class="error"></div></div>
+          <div class="field" id="fPhone"><label for="phone">Phone <span class="muted">(optional)</span></label><input id="phone" type="tel" autocomplete="tel" maxlength="20"><div class="error"></div></div>
+        </div>
+
+        <div class="field" id="fEmail"><label for="email">Email</label><input id="email" type="email" autocomplete="email" maxlength="120"><div class="error"></div></div>
+        <div class="field" id="fPw">
+          <label for="pw">Password</label>
+          <div class="passwrap"><input id="pw" type="password" autocomplete="current-password" maxlength="100"><button type="button" id="showPw" aria-label="Show password">Show</button></div>
+          <div id="strengthBox" class="hidden"><div class="strength" id="strength" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="help" id="pwHelp">At least 8 characters. A longer phrase is stronger.</div></div>
+          <div class="error"></div>
+        </div>
+
+        <button class="btn primary big block" id="go" type="submit">Log in</button>
+      </form>
+
+      <p class="switch" id="switch"></p>
+      <p class="switch"><a href="/">&larr; Back to home</a></p>
+    </div>
+  </main>
+</div>
+<script src="/static/js/common.js"></script>
+<script src="/static/js/auth.js"></script>
+</body>
+</html>

@@ -1,14 +1,8 @@
-import os, tempfile
-os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "t.db")
-os.environ.pop("ANTHROPIC_API_KEY", None)
-from fastapi.testclient import TestClient
-from app.main import app
-
-c = TestClient(app)
-SAMPLE = open("samples/wedding_cards_hinglish.txt", encoding="utf-8").read()
+from conftest import SAMPLE, add_customer, make_client, make_ticket
 
 
-def test_full_flow():
+def test_full_flow(dealer):
+    c = dealer
     d = c.post("/api/deals", data={"title": "Wedding cards", "chat_text": SAMPLE}).json()
     assert len(d["messages"]) == 16
     t = d["terms"]
@@ -26,10 +20,12 @@ def test_full_flow():
     s = c.post(f"/api/deals/{d['id']}/send").json()
     token = s["confirm_url"].rsplit("/", 1)[1]
 
-    otp = c.post(f"/api/c/{token}/otp", json={"phone": "9999999999"}).json()["demo_otp"]
-    bad = c.post(f"/api/c/{token}/respond", json={"name": "Suresh", "otp": "000000x", "action": "agree"})
+    other = make_client("customer")           # magic link needs no account at all
+    other.cookies.clear()
+    otp = other.post(f"/api/c/{token}/otp", json={"phone": "9999999999"}).json()["demo_otp"]
+    bad = other.post(f"/api/c/{token}/respond", json={"name": "Suresh", "otp": "000000x", "action": "agree"})
     assert bad.status_code == 400
-    ok = c.post(f"/api/c/{token}/respond", json={"name": "Suresh", "otp": otp, "action": "agree"}).json()
+    ok = other.post(f"/api/c/{token}/respond", json={"name": "Suresh", "otp": otp, "action": "agree"}).json()
     assert ok["status"] == "confirmed"
 
     d = c.get(f"/api/deals/{d['id']}").json()
