@@ -5,7 +5,7 @@ no internet needed after the one-time download. If the model ever fails, the bui
 
 ## Setup (once, about 10 minutes)
 ```
-cd accord-clean
+cd Accord
 bash setup_mac.sh
 ```
 It installs the Python packages and Ollama, downloads `qwen2.5:7b` (4.7 GB), builds the `accord-reader` model

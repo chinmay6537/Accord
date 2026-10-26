@@ -95,8 +95,8 @@ A **ticket** is one deal with one customer. Statuses: collecting, draft, sent, c
 Requirements: Python 3.10 or newer.
 
 ```bash
-git clone https://github.com/<your-username>/accord.git
-cd accord
+git clone https://github.com/chinmay6537/Accord.git
+cd Accord
 
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate

@@ -57,7 +57,7 @@ git init
 git add .
 git commit -m "Accord: from chat to commitment"
 git branch -M main
-git remote add origin https://github.com/<your-username>/accord.git
+git remote add origin https://github.com/chinmay6537/Accord.git
 git push -u origin main
 ```
 
