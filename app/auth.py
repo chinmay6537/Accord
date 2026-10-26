@@ -13,7 +13,7 @@ from fastapi import Depends, HTTPException, Request
 from . import db
 from .common import now
 
-COOKIE = "hs_session"
+COOKIE = "accord_session"
 SESSION_DAYS = 14
 ROLES = ("dealer", "customer")
 

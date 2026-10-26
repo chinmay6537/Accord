@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from . import auth, db, evidence, ingest
 from .proof import items as _items, verification as _verification
-from . import routes_auth, routes_customer, routes_dealer, routes_demo, routes_thread
+from . import routes_auth, routes_customer, routes_dealer, routes_demo, routes_export, routes_thread
 from .auth import current_user, need_dealer
 from .common import dealer_deal, get_deal as _deal, now as _now, set_deal as _set
 from .agreement import build_agreement
@@ -31,10 +31,10 @@ MAX_BYTES = MAX_MB * 1024 * 1024
 DEMO_MODE = os.getenv("DEMO_MODE", "1") == "1"  # shows OTP on screen instead of sending an SMS
 OPEN_STATES = ("collecting", "draft")  # evidence can be added or changed only before sending
 
-app = FastAPI(title="Handshake to Contract")
+app = FastAPI(title="Accord")
 db.init()
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
-for _r in (routes_auth.router, routes_auth.join, routes_dealer.router, routes_customer.router, routes_demo.router, routes_thread.router):
+for _r in (routes_auth.router, routes_auth.join, routes_dealer.router, routes_customer.router, routes_demo.router, routes_export.router, routes_thread.router):
     app.include_router(_r)
 
 
@@ -190,6 +190,12 @@ def customer_page(request: Request):
 @app.get("/ticket/{deal_id}")
 def workflow_page(request: Request, deal_id: str):
     return _page(request, "ticket.html", "dealer")
+
+
+@app.get("/healthz")
+def healthz():
+    """For hosting platforms to check the app is up."""
+    return {"ok": True}
 
 
 @app.get("/api/sample")

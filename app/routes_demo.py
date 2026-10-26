@@ -28,7 +28,7 @@ def demo(body: DemoIn, request: Request):
     while q and t - q[0] > 60:
         q.popleft()
     if len(q) >= PER_MINUTE:
-        raise HTTPException(429, "Slow down a little. Sign up to use Handshake without limits.")
+        raise HTTPException(429, "Slow down a little. Sign up to use Accord without limits.")
     q.append(t)
 
     text = body.text.strip()
@@ -45,6 +45,7 @@ def demo(body: DemoIn, request: Request):
     fields = [("scope", "What was agreed"), ("price", "Price"), ("delivery", "Delivery"), ("payment_terms", "Payment")]
     return {
         "messages": len(msgs),
+        "summary": terms.get("summary", ""),
         "parties": [p["name"] for p in terms["parties"]],
         "terms": [{"label": lab, "value": terms[k].get("value", ""),
                    "refs": [cite[i] for i in terms[k].get("source_ids", []) if i in cite][:2],

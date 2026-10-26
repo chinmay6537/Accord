@@ -71,7 +71,7 @@ function termCard(t, locked, check) {
       ${t.key === "price" && !empty ? `<span class="tag">${esc(GST[t.gst] || "")}</span>` : ""}</div>
     ${t.edited ? `<p><span class="tag red">Changed by the dealer</span> The evidence itself said <b>${esc(t.extracted_value || "nothing")}</b>. Ask them why it is different.</p>` : ""}
     ${empty ? "" : `<details open class="refs"><summary>Where this comes from (${t.refs.length} reference${t.refs.length === 1 ? "" : "s"})</summary>${quotes(t.refs)}</details>`}
-    ${t.history.length ? `<details><summary>It changed along the way (${t.history.length})</summary>${t.history.map((h) => `<p class="history-line"><s>${esc(h.old)}</s> &rarr; <b>${esc(h.new)}</b></p>${quotes(h.refs)}`).join("")}</details>` : ""}
+    ${t.history.length ? `<details><summary>It changed along the way (${t.history.length})</summary>${t.history.map((h) => `<p class="history-line"><s>${esc(h.old)}</s> &rarr; <b>${esc(h.new)}</b>${h.reason ? ` <span class="muted">${esc(h.reason)}</span>` : ""}</p>${quotes(h.refs)}`).join("")}</details>` : ""}
     ${empty ? "" : `<div class="verdict">
       <label class="choice"><input type="radio" name="chk_${t.key}" value="match" ${mine === "match" ? "checked" : ""} ${locked ? "disabled" : ""}> This matches my records</label>
       <label class="choice"><input type="radio" name="chk_${t.key}" value="mismatch" ${mine === "mismatch" ? "checked" : ""} ${locked ? "disabled" : ""}> This does not match</label>
@@ -117,6 +117,7 @@ async function detail(id) {
     <div class="card"><h2>Your answer</h2>
       <div class="gate" id="gate"></div>
       <details><summary>Read the full agreement</summary><pre class="paper">${esc(r.agreement)}</pre></details>
+      <p class="row"><a class="btn small plain" href="/api/my/tickets/${r.id}/agreement.pdf" download>Download agreement (PDF)</a><a class="btn small plain" href="/api/my/tickets/${r.id}/report.pdf" download>Download evidence report (PDF)</a></p>
       ${locked ? `<p class="muted">${r.status === "confirmed" ? "You approved this. It is saved in the shared evidence trail, with what you checked." : "You asked the dealer for changes. They will update the agreement."}</p>`
       : `<label for="note" style="margin-top:12px">Note for the dealer (needed if you ask for a change and have not written what is wrong above)</label><textarea id="note" class="short" maxlength="500"></textarea>
         <div class="row"><button class="btn primary" id="agree" disabled>I checked everything. Approve</button><button class="btn plain" id="change">Ask for changes</button></div>`}

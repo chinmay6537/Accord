@@ -88,7 +88,7 @@ def review(deal_id: str, user: dict = Depends(need_customer)):
         row = {"key": key, "label": label, "value": (term.get("value") or "").strip(),
                "refs": refs(term.get("source_ids", [])), "edited": bool(term.get("edited")),
                "extracted_value": term.get("extracted_value"),
-               "history": [{"old": s["old"], "new": s["new"], "refs": refs(s.get("source_ids", []))}
+               "history": [{"old": s["old"], "new": s["new"], "reason": s.get("reason", ""), "refs": refs(s.get("source_ids", []))}
                            for s in terms.get("superseded", []) if s["field"] == key]}
         if key == "price":
             row["gst"] = (term.get("gst") or "not_mentioned")
@@ -104,6 +104,7 @@ def review(deal_id: str, user: dict = Depends(need_customer)):
                              "dealer_business", "dealer_email", "dealer_phone", "my_name")},
         "agreement": d["agreement"],
         "parties": [p["name"] for p in terms.get("parties", [])],
+        "summary": terms.get("summary", ""),
         "terms": rows,
         "open_points": open_points,
         "evidence": [{"id": i["id"], "kind": i["kind"], "name": i["name"], "label": i["label"], "added": i["added"],

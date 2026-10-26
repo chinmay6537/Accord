@@ -35,7 +35,7 @@ function paint() {
   $("fBiz").classList.toggle("hidden", role !== "dealer");
   $("switch").innerHTML = login ? 'New here? <a href="/signup" id="swap">Create an account</a>' : 'Already have an account? <a href="/login" id="swap">Log in</a>';
   $("swap").onclick = (e) => { e.preventDefault(); go(login ? "signup" : "login"); };
-  document.title = "Handshake: " + (login ? "log in" : "sign up");
+  document.title = "Accord: " + (login ? "log in" : "sign up");
   clearErrors();
 }
 function go(m) {

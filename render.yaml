@@ -1,0 +1,21 @@
+# One-click deploy on Render: New + > Blueprint > pick this repo.
+services:
+  - type: web
+    name: accord
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: SEED_DEMO          # creates the demo dealer + customer on every start (see DEPLOY.md)
+        value: "1"
+      - key: DEMO_MODE          # shows confirmation codes on screen; set to 0 for real use
+        value: "1"
+      - key: ANTHROPIC_API_KEY  # optional: better extraction on messy chats
+        sync: false
+      - key: OPENAI_API_KEY     # optional: voice note transcription
+        sync: false
+    # Free instances forget their files when they restart. To keep data, use a paid plan and add:
+    # disk:
+    #   name: accord-data
+    #   mountPath: /app/data
+    #   sizeGB: 1

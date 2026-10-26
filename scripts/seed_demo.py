@@ -3,8 +3,8 @@
     python scripts/seed_demo.py
 
 Makes (once; safe to run again):
-    dealer   demo.dealer@handshake.test    password: demo12345
-    customer demo.customer@handshake.test  password: demo12345
+    dealer   demo.dealer@accord.test    password: demo12345
+    customer demo.customer@accord.test  password: demo12345
 and one ticket the dealer already sent to the customer, built from the sample chat.
 """
 import sys
@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 PW = "demo12345"
-DEALER, CUSTOMER = "demo.dealer@handshake.test", "demo.customer@handshake.test"
+DEALER, CUSTOMER = "demo.dealer@accord.test", "demo.customer@accord.test"
 chat = (Path(__file__).resolve().parent.parent / "samples" / "wedding_cards_hinglish.txt").read_text(encoding="utf-8")
 
 dealer = TestClient(app)

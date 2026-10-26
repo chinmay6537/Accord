@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-DB_PATH = os.getenv("DB_PATH", "data/handshake.db")
+DB_PATH = os.getenv("DB_PATH", "data/accord.db")
 
 
 def conn():

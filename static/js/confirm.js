@@ -16,6 +16,7 @@ async function call(path, body) {
     $("intro").textContent = `${d.parties.join(" and ")} agreed this on chat. Please check it.`;
     $("docTitle").textContent = d.title;
     $("agreementText").textContent = d.agreement;
+    $("pdf").href = `/api/c/${token}/agreement.pdf`;
     $("doc").classList.remove("hidden");
     if (d.status === "confirmed") { $("intro").textContent = "This agreement is already confirmed."; return; }
     $("verify").classList.remove("hidden");

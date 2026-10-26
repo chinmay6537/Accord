@@ -25,6 +25,7 @@ async function run() {
 function show(d) {
   $("res").hidden = false;
   $("meta").textContent = `${d.messages} messages between ${d.parties.join(" and ") || "the parties"}`;
+  $("summary").textContent = d.summary || ""; $("summary").hidden = !d.summary;
   $("terms").innerHTML = d.terms.map((t) => `<div class="trow"><div class="lab">${esc(t.label)}${t.changes ? ` <span class="tag yellow">changed ${t.changes}x</span>` : ""}</div>
       <div class="val">${t.value ? esc(t.value) : '<span class="muted">Not agreed in the chat</span>'}</div>
       ${t.refs[0] ? `<div class="from">${esc(t.refs[0].sender)}: "${esc(t.refs[0].text)}"</div>` : ""}</div>`).join("");

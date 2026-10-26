@@ -1,167 +1,293 @@
-# Handshake
+# Accord
 
-Turn a WhatsApp deal into a clear agreement both sides confirm, with a tamper-evident evidence trail.
+**From chat to commitment.** Accord turns an informal WhatsApp deal into a clear, plain-language agreement that both sides confirm, backed by a tamper-evident evidence trail.
 
-**Flow:** paste chat → terms found (with citations) → gaps flagged with ready-to-send friendly messages →
-plain-language agreement → other party confirms by link + OTP → hash-chained proof anyone can verify.
+Built for the 48-hour hackathon problem **LS-06: From Handshake to Contract (Informal Agreements)**.
 
-## Who is who
+> Not legal advice. Accord helps people keep a clear record of what they already agreed. Enforceability and stamp duty depend on the state and the situation.
 
-| Role | Lands on | Can do |
-|---|---|---|
-| **Dealer** | `/dealer` | Dashboard: overview, tickets (history of every request), customers, segments, new ticket. Builds the evidence and agreement at `/ticket/<id>`. |
-| **Customer** | `/customer` | View-only. Sees requests dealers sent them, checks every term against the messages behind it, chats with the dealer, then approves or asks for a change. Cannot create tickets. |
-| Anyone with a link | `/c/<token>` | Confirms with a phone code, no account needed (the original flow). |
+---
 
-A **ticket** is one deal with one customer. Flow: dealer opens *New ticket* (title, customer, description, optional
-details) -> adds evidence -> reads terms -> builds the agreement -> sends. The customer sees it in their portal.
+## Table of contents
 
-**Linking customers to accounts:** the dealer saves a customer and gets a private invite link
-(`/join/<token>`, shown on the customer's page). The customer signs up through it, which connects their account to
-that dealer's records. We deliberately do *not* match by email or phone, because neither is verified.
+1. [The problem](#the-problem)
+2. [What Accord does](#what-accord-does)
+3. [Features](#features)
+4. [How it works](#how-it-works)
+5. [Quick start](#quick-start)
+6. [Try both sides in two minutes](#try-both-sides-in-two-minutes)
+7. [Configuration](#configuration)
+8. [Using the app](#using-the-app)
+9. [Architecture](#architecture)
+10. [API overview](#api-overview)
+11. [Security and trust model](#security-and-trust-model)
+12. [Testing](#testing)
+13. [Project structure](#project-structure)
+14. [Design system](#design-system)
+15. [Roadmap](#roadmap)
+16. [Known limitations](#known-limitations)
 
-## Customer review (verify, then approve)
+---
 
-Open a request at `/customer`. For each term (what was agreed, price, delivery, payment) the customer sees the value,
-the exact messages it came from, how it changed along the way, and a warning if the dealer edited it by hand.
-They mark each term "matches my records" or "does not match" (with a note), can press **Ask the dealer about this**
-to prefill the chat, and see the proof status, evidence fingerprints and step trail.
-**Approve stays disabled until every agreed term is marked as matching** (also enforced on the server). If anything
-does not match they use **Ask for changes**. Their checks are saved into the hash chain with the answer.
-Customers only see messages cited behind a term, never the dealer's private notes or the whole evidence.
+## The problem
+
+Small businesses in India close real deals over WhatsApp: a price here, a delivery date there, an advance sent by UPI. When something goes wrong, nobody can say with confidence what was agreed. The price changed four times. The delivery date was "next week", then "25th". The advance was mentioned in a voice note. Formal contracts feel heavy and legalistic for these relationships, so they are never written.
+
+## What Accord does
+
+1. Reads the conversation (chat export, voice notes, screenshots, documents, call notes).
+2. Extracts the key terms: parties, scope, price, delivery, payment, each linked to the exact messages it came from.
+3. Flags what is missing or unclear, and drafts a friendly message to settle each point.
+4. Generates a plain-language agreement.
+5. Lets the other person check every term against the evidence, discuss it, and approve.
+6. Records every step in a hash chain so any later change is detectable.
+
+The tone stays human. Nothing is presented as a legal contract unless the users choose that.
+
+## Features
+
+**Evidence collection**
+- WhatsApp `.txt` exports, `.zip` exports with media, and pasted chats
+- Voice notes (Whisper transcription when configured, otherwise typed by the user)
+- Screenshots (read with Claude vision when configured, otherwise typed)
+- PDF, Word and text files, plus typed notes for calls and in-person agreements
+- Multiple sources merged into one timeline by date, so a later voice note can override a price in the chat
+- Every item fingerprinted with SHA-256 at the moment it is added; removing an item keeps the original and logs the removal
+
+**Term extraction**
+- Parties, scope, price (with GST status), delivery date and payment terms
+- Citations to the source messages for every value
+- Change tracking: when a price or date is revised, the latest value is used and the history is shown
+- Gap detection with ready-to-send nudges (cancellation, late delivery, defects, disputes)
+- Claude-powered extraction when an API key is set, with an offline rules engine as fallback
+
+**Two roles, two experiences**
+- **Dealer:** dashboard with overview, tickets, customers and segments; builds the evidence and agreement for each ticket
+- **Customer:** view-only portal where each term is verified against its references, questions go to the dealer in chat, and approval is unlocked only after every term is checked
+- Chat and comments on each agreement; comments are written into the evidence trail
+
+**Proof**
+- Hash-chained evidence trail, re-verified on every view
+- Stored files are re-hashed so a swapped file is caught
+- **PDF export:** the agreement, and a full evidence report (terms, sources, changes, files with fingerprints, step-by-step trail). A customer's copy contains only the messages cited behind terms
+- Evidence bundle download (JSON) and a file checker for the original chat export
+
+**Public demo**
+- The landing page runs a free demo on any pasted chat (rules engine only, rate limited, nothing saved). Everything beyond it requires an account.
+
+## How it works
 
 ```
-GET  /api/my/tickets               GET /api/my/tickets/{id}   (full review payload)
-PUT  /api/my/tickets/{id}/checks/{scope|price|delivery|payment_terms}  {result: match|mismatch|clear, note}
-POST /api/my/tickets/{id}/respond  {action: agree|change, note}
+Evidence --> Terms --> Agreement --> Confirmation --> Proof
+ (dealer)   (dealer)    (dealer)     (customer)      (both)
 ```
 
-## Landing and auth pages
+1. The dealer creates a **ticket** for a customer and adds evidence.
+2. The reader extracts terms; the dealer reviews and corrects them.
+3. The dealer generates the agreement and sends it.
+4. The customer opens the request, checks each term against the cited messages, asks questions if needed, then approves or asks for changes.
+5. Every step is appended to a hash chain. Approval stores which terms the customer checked.
 
-The landing page (`static/landing.html`) shows a free demo through `POST /api/demo` (no login, rules engine only, 8 tries a minute, nothing saved). Everything after the demo needs an account. Replace the pages freely, but keep the routes and this API:
+A **ticket** is one deal with one customer. Statuses: collecting, draft, sent, confirmed, change requested.
 
-## Auth API (used by `static/js/auth.js`)
+## Quick start
 
-Restyle freely, but keep the routes `/`, `/login`, `/signup`, `/join/<token>` and call:
-
-```
-POST /api/auth/signup  {name, email, password, role: "dealer"|"customer", phone?, business_name?, invite_token?}
-POST /api/auth/login   {email, password}
-POST /api/auth/logout
-GET  /api/auth/me
-GET  /api/join/<token>   -> {customer_name, dealer_name, business_name}   (for the invite banner)
-```
-Signup and login answer `{id, name, role, home}` and set an HttpOnly session cookie; send the browser to `home`
-(`/dealer` or `/customer`). On `/join/<token>` the page should sign up with `role: "customer"` and `invite_token`.
-Errors come back as `{detail: "message"}` with a 4xx status.
-
-## Run it
+Requirements: Python 3.10 or newer.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+git clone https://github.com/<your-username>/accord.git
+cd accord
+
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
+cp .env.example .env               # optional: add API keys
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000, sign up as a dealer, create a ticket, and press **Use sample chat** on the evidence page.
+Open <http://localhost:8000>.
 
-## The evidence page (step 1)
+No API keys are required. Without them the app uses a built-in rules engine that handles the bundled sample chat.
 
-Everything the deal rests on goes in here, and each item is fingerprinted (SHA-256) the moment it lands.
-
-| You add | What happens |
-|---|---|
-| WhatsApp `.txt` export or pasted chat | Parsed into numbered, time-stamped messages |
-| WhatsApp `.zip` ("with media") | Unpacked: chat, voice notes and photos become separate items |
-| Voice note (.opus, .mp3, .m4a ...) | Whisper transcript if `OPENAI_API_KEY` is set (marked "machine text, check it"); otherwise you type what it says |
-| Screenshot (.png, .jpg) | Claude reads the text if `ANTHROPIC_API_KEY` is set; otherwise you type it |
-| PDF / Word / text file | Text is read; a scanned PDF asks you to type it |
-| Typed note (call, in person) | Stored as evidence with who said it and when |
-
-Items from different sources are merged into one timeline by their dates, so a later voice note or call
-can correctly override a price in the chat. A checklist tells you what's missing before you press
-**Read the evidence**. Removing an item stops it being used but keeps the original and logs the removal.
-Re-hashing every stored file on each page load means a swapped or edited file turns the proof red.
-
-Voice-note transcription and screenshot reading need API keys and were not run against the live services here.
-
-No API key? It still works: a built-in rules engine reads the sample chat. To switch to Claude (much better
-on messy Hinglish/Kannada), set the key before starting the server:
+## Try both sides in two minutes
 
 ```bash
-export ANTHROPIC_API_KEY=your-key          # Windows PowerShell: $env:ANTHROPIC_API_KEY="your-key"
+python scripts/seed_demo.py
 ```
 
-Other settings are listed in `.env.example` (`CLAUDE_MODEL`, `DEMO_MODE`, `DB_PATH`).
+This creates a demo dealer, a demo customer and one ticket already sent between them.
 
-## Demo script (2 minutes)
+| Role | Email | Password |
+|---|---|---|
+| Dealer | `demo.dealer@accord.test` | `demo12345` |
+| Customer | `demo.customer@accord.test` | `demo12345` |
 
-1. Load the sample chat. Show the price changing 4 times; the app picks the latest and shows the history.
-2. Click a `#12` chip to show the exact message each term came from.
-3. Show the red gaps (cancellation, warranty...). Tap **Send on WhatsApp** on one.
-4. Make the agreement, flip Friendly / Formal, click **Send for confirmation**.
-5. Click **Open as other party**, get the demo OTP, confirm.
-6. Open **Proof**. Hit **Simulate tampering**. The stamp turns red and the broken link is highlighted.
+Log in as the dealer in a normal browser window and as the customer in a private (incognito) window. Login is stored per browser, so one window can only be one person.
 
-## How the proof works
+Suggested run:
+1. As the customer, open the request, mark all four terms as matching, ask a question in chat, and approve.
+2. As the dealer, open the ticket and see it marked **Confirmed**, with what the customer checked recorded in the history.
 
-Every event is one log entry holding the SHA-256 of its content and the hash of the entry before it.
-Edit anything in the past and every later hash stops matching. `/api/verify-file` also lets anyone upload
-the original chat file and check its fingerprint against the trail.
+## Deploying
 
-To make it stronger than "trust our database": send the latest fingerprint to both parties at each step,
-and/or anchor it with OpenTimestamps.
+See [DEPLOY.md](DEPLOY.md) for step-by-step guides (Render, Railway, Fly.io, Docker) and a post-deploy checklist. The repo ships with a `Dockerfile`, `start.sh` and `render.yaml`.
 
-## Layout
+## Configuration
+
+Copy `.env.example` to `.env`. All settings are optional.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SEED_DEMO` | `0` | Set to `1` to create the demo dealer, customer and ticket on every start (used by `start.sh`). |
+| `PORT` | `8000` | Port used by `start.sh` (hosts set this for you). |
+| `ANTHROPIC_API_KEY` | empty | Enables Claude extraction and screenshot reading. Without it the rules engine is used. |
+| `CLAUDE_MODEL` | `claude-sonnet-5-5` | Model used for extraction. |
+| `OPENAI_API_KEY` | empty | Enables Whisper transcription of voice notes. |
+| `DEMO_MODE` | `1` | Shows the confirmation code on screen. Set to `0` and connect an SMS provider for real use. |
+| `DB_PATH` | `data/accord.db` | SQLite database file. |
+| `UPLOAD_DIR` | `data/uploads` | Where uploaded evidence files are stored. |
+| `MAX_UPLOAD_MB` | `25` | Upload size limit. |
+
+## Using the app
+
+### Dealer
+
+1. **Sign up** as a dealer, or log in.
+2. **Customers:** add a customer and copy their private invite link.
+3. **New ticket:** give it a title, pick the customer and add a description.
+4. On the ticket page:
+   - **Evidence:** add chats, voice notes, screenshots, documents or call notes, then press *Read the evidence*.
+   - **Terms:** review what was found and the messages behind each value. Resolve the open points using the suggested messages.
+   - **Agreement:** choose a friendly or formal tone and press *Send for confirmation*.
+   - **Proof:** inspect the evidence trail and its integrity status.
+5. Chat with the customer from the ticket. Track everything under **Tickets**.
+
+### Customer
+
+1. Open the dealer's invite link and sign up as a customer.
+2. Open a request from **Requests**.
+3. For each term, read the cited messages and mark it as matching or not matching.
+4. Use *Ask the dealer about this* to start a chat with the question filled in.
+5. Approve once every term matches, or choose *Ask for changes*.
+
+Customers cannot create tickets, customers or evidence.
+
+### Linking customers to accounts
+
+Customers are connected to a dealer's records through the private invite link (`/join/<token>`). Accord deliberately does **not** match accounts by email or phone, because neither is verified and matching would let anyone see an agreement by typing someone else's number.
+
+### No-account confirmation
+
+Each sent agreement also has a one-time link (`/c/<token>`) where a person without an account can confirm using a phone code. In demo mode the code is shown on screen.
+
+## Architecture
+
+- **Backend:** FastAPI with SQLite (`sqlite3`). No ORM.
+- **Frontend:** plain HTML, CSS and JavaScript. No build step. Each page is one `.html` shell, the shared stylesheet and one page script.
+- **Extraction:** Claude when `ANTHROPIC_API_KEY` is set, otherwise a deterministic rules engine.
+- **Proof:** each event stores the SHA-256 of its content and the hash of the previous entry. Editing any past entry breaks every later link.
+- **Sessions:** server-side sessions with an HttpOnly cookie; only a hash of the token is stored.
+
+## API overview
+
+Interactive docs are available at `/docs` while the server is running.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` |
+| Invites | `GET /api/join/{token}`, `POST /api/join/{token}` |
+| Public demo | `POST /api/demo`, `GET /api/sample` |
+| Dealer | `/api/dealer/overview`, `/api/tickets`, `/api/customers`, `/api/segments` |
+| Evidence | `GET/POST /api/cases/{id}/items`, `POST /api/cases/{id}/analyze` |
+| Agreement | `PUT /api/deals/{id}/terms`, `POST /api/deals/{id}/agreement`, `POST /api/deals/{id}/send` |
+| Proof | `GET /api/deals/{id}`, `GET /api/deals/{id}/bundle`, `POST /api/verify-file` |
+| PDF | `GET /api/deals/{id}/agreement.pdf`, `GET /api/deals/{id}/report.pdf`, `GET /api/my/tickets/{id}/agreement.pdf`, `GET /api/my/tickets/{id}/report.pdf`, `GET /api/c/{token}/agreement.pdf` |
+| Customer | `GET /api/my/tickets`, `GET /api/my/tickets/{id}`, `PUT /api/my/tickets/{id}/checks/{field}`, `POST /api/my/tickets/{id}/respond`, `GET /api/my/dealers` |
+| Chat | `GET/POST /api/tickets/{id}/thread` |
+| No-account link | `GET /api/c/{token}`, `POST /api/c/{token}/otp`, `POST /api/c/{token}/respond` |
+
+## Security and trust model
+
+- Passwords are hashed with scrypt. Login attempts are throttled per account.
+- Dealers can only access their own tickets and customers; every dealer route checks ownership.
+- Customers only see requests sent to their account, and only the messages cited behind each term, never the dealer's private notes or the full chat.
+- Approval is enforced on the server: the customer must have checked every agreed term as matching.
+- The public demo never calls a paid API, limits input to 8,000 characters and 8 requests per minute per visitor, and stores nothing.
+- The hash chain makes tampering **evident**, not impossible. For stronger guarantees, share the latest fingerprint with both parties at each step or anchor it with an external timestamping service.
+
+## Testing
+
+```bash
+python -m pytest -q tests
+```
+
+The suite covers the full workflow, the evidence page, accounts and roles, dealer isolation, invite linking, customer verification gating, the public demo and PDF export (including who may download what).
+
+## Project structure
 
 ```
-app/                 Python backend (FastAPI + SQLite)
-  main.py              page routes + the evidence/agreement workflow API
-  routes_auth.py       signup, login, logout, me, invite lookup
-  routes_demo.py       PUBLIC landing-page demo (rules engine only, rate limited, saves nothing)
-  routes_dealer.py     overview, tickets, customers, segments
-  routes_customer.py   customer review: terms, references, checks, approve / ask for change
-  routes_thread.py     chat + comments on a ticket
-  proof.py             chain + stored-file verification shared by dealer and customer
-  auth.py common.py    sessions, passwords, shared helpers
-  ingest.py parser.py extract.py agreement.py evidence.py db.py
-static/              Frontend. Every page = one .html shell + the shared css + one page script
-  css/style.css        THE design system (black and white neo-brutalism). Only stylesheet.
-  js/common.js         shared helpers: esc, api, J, toast, day, when, copy (load first)
-  js/thread.js         chat component used by dealer and customer pages
-  landing.html   js/landing.js    public page with the free demo
-  login.html     js/auth.js       log in, sign up, customer invite (/join/<token>)
-  dealer.html    js/dealer.js     dealer dashboard (sidebar)
-  customer.html  js/customer.js   customer portal (sidebar), verify then approve
-  ticket.html    js/ticket.js     evidence -> terms -> agreement -> proof (/ticket/<id>)
-  confirm.html   js/confirm.js    no-account confirmation link (/c/<token>)
-samples/             Hinglish sample chat
-tests/               API tests for the whole flow (pytest)
+app/                     Python backend
+  main.py                  page routes and the evidence/agreement workflow API
+  routes_auth.py           sign up, log in, log out, invite lookup
+  routes_demo.py           public landing-page demo
+  routes_export.py         PDF downloads (agreement, evidence report)
+  pdf.py  fonts/           PDF builder and the bundled fonts
+  routes_dealer.py         overview, tickets, customers, segments
+  routes_customer.py       customer review: terms, references, checks, approval
+  routes_thread.py         chat and comments on a ticket
+  proof.py                 hash chain and stored-file verification
+  auth.py  common.py       sessions, passwords, shared helpers
+  ingest.py  parser.py  extract.py  agreement.py  evidence.py  db.py
+static/                  Frontend
+  css/style.css            the single design system
+  js/common.js             shared helpers (loaded first)
+  js/thread.js             chat component
+  landing.html  js/landing.js     public page with the free demo
+  login.html    js/auth.js        log in, sign up, customer invite
+  dealer.html   js/dealer.js      dealer dashboard
+  customer.html js/customer.js    customer portal
+  ticket.html   js/ticket.js      evidence, terms, agreement, proof
+  confirm.html  js/confirm.js     no-account confirmation
+scripts/seed_demo.py     creates the demo dealer, customer and ticket
+Dockerfile  start.sh  render.yaml  DEPLOY.md     deployment files and guide
+samples/                 sample Hinglish chat
+tests/                   pytest suite
 ```
 
-## Design rules (keep every new screen on these)
+## Design system
 
-- **Black and white only.** No colours. Meaning comes from shape and text:
-  solid black = done/confirmed, dashed grey = pending/notice, stripes = problem/needs attention.
-  (The class names `tag green / yellow / red` are kept; the stylesheet turns them into those three looks.)
-- Thick 3px black borders, hard offset shadows, no rounded corners, Archivo + JetBrains Mono.
-- Use the existing classes (`.card`, `.btn`, `.btn.primary`, `.tag`, `.field`, `.grid2`, `.row`, `.note`, `.gate`).
-  Do not add per-page stylesheets or inline colours.
-- Pages without a sidebar use the `.topbar`; dashboards use the `.shell` + `.side` sidebar.
+Black and white neo-brutalism, defined once in `static/css/style.css`. There are no colours; meaning is carried by shape and text.
 
-Run the test: `python -m pytest -q tests`
+| Look | Meaning |
+|---|---|
+| Solid black | Done, confirmed |
+| Dashed grey | Waiting, notice |
+| Diagonal stripes | Problem, needs attention |
 
-## Not built yet
+Thick 3px borders, hard offset shadows, square corners, Archivo and JetBrains Mono. New screens should reuse the existing classes and avoid per-page styles.
 
-- Local (offline) speech-to-text
-- Email/phone verification, password reset
-- Dealer revises the agreement after the customer asks for a change, then re-sends
-- Notifications when a customer replies (chat updates by polling every 4 s)
-- Real SMS/WhatsApp OTP (set `DEMO_MODE=0` and plug a provider into `party_otp`)
-- State-wise stamp duty estimator and Section 63 BSA certificate draft
-- PDF export of the agreement and evidence bundle
-- Hindi / Kannada agreement output
+## Roadmap
+
+- Dealer revises the agreement after a change request and re-sends it
+- Email and phone verification, password reset
+- Notifications when the other party replies (chat currently polls every 4 seconds)
+- Real SMS or WhatsApp confirmation codes
+- State-wise stamp duty estimator and a Section 63 BSA certificate draft
+- Hindi and Kannada agreement output
+- Offline speech-to-text for voice notes
+
+## Known limitations
+
+- The offline rules engine is tuned to the sample chat. Real, messy chats give much better results with an Anthropic API key.
+- Voice transcription and screenshot reading depend on external API keys and have not been tested against the live services in the project's own test suite.
+- SQLite and in-memory throttling suit a single server process, not a multi-instance deployment.
+- Confirmation codes are shown on screen in demo mode.
 
 ## Disclaimer
 
-Not legal advice. The agreement supports a clear record; enforceability and stamp duty depend on your state.
+Accord is not legal advice and does not provide verified electronic signatures. It helps people keep a clear, checkable record of an informal agreement.
+
+## Choosing the AI reader
+
+`LLM_PROVIDER=auto|claude|local|rules`. Claude needs `ANTHROPIC_API_KEY`; a model on another laptop needs `LOCAL_LLM_URL` and `LOCAL_LLM_TOKEN` (Mac quick start: `bash setup_mac.sh` once, then `bash run_mac.sh`; full guide: [LOCAL_LLM.md](LOCAL_LLM.md)). If the chosen reader fails, the built-in rules answer instead. Model answers are always checked against the chat, and the summary explains price changes (for example, a new quantity means a new price).

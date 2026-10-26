@@ -98,7 +98,8 @@ async function ticket(id) {
   view.innerHTML = `<p><a href="#/tickets">&larr; All tickets</a></p>
     <div class="head"><div><h1 class="pt">${esc(t.title)}</h1><p>${tag(t.status)} ${t.priority === "urgent" ? '<span class="tag red">urgent</span>' : ""}</p></div>
       <div class="row">${open ? `<a class="btn plain" href="#/edit/${t.id}">Edit details</a>` : ""}
-        <a class="btn primary" href="/ticket/${t.id}">${open ? "Add evidence and build agreement" : "Open agreement and proof"}</a></div></div>
+        <a class="btn primary" href="/ticket/${t.id}">${open ? "Add evidence and build agreement" : "Open agreement and proof"}</a>
+        ${shared ? `<a class="btn plain" href="/api/deals/${t.id}/agreement.pdf" download>Agreement PDF</a><a class="btn plain" href="/api/deals/${t.id}/report.pdf" download>Evidence report PDF</a>` : ""}</div></div>
     <div class="card"><h2>Details</h2>
       <dl class="facts">
         <dt>Customer</dt><dd>${c ? `<a href="#/customer/${c.id}">${esc(c.name)}</a>${c.business ? ", " + esc(c.business) : ""}${c.segment_name ? ` <span class="tag">${esc(c.segment_name)}</span>` : ""}` : "-"}</dd>

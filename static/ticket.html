@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Handshake: build the agreement</title>
+  <title>Accord: build the agreement</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="wrap">
-    <a class="brand" href="/dealer">Handshake</a>
+    <a class="brand" href="/dealer">Accord</a>
     <nav class="toplinks" aria-label="Page"><a class="link" href="/dealer#/tickets">&larr; Back to dashboard</a></nav>
   </div>
 </header>
@@ -83,6 +83,7 @@
     <div class="card">
       <h2>What we found</h2>
       <p class="muted" id="engine"></p>
+      <p id="summary" class="summary" hidden></p>
       <div id="parties"></div>
       <div id="termFields"></div>
       <div id="sources"></div>
@@ -118,6 +119,7 @@
       <pre class="paper" id="agreementText"></pre>
       <div class="row">
         <button class="btn primary" id="send">Send for confirmation</button>
+        <a class="btn plain" id="agrPdf" download>Download PDF</a>
         <button class="btn plain" id="back2">Back to terms</button>
       </div>
       <div class="linkbox hidden" id="linkbox">
@@ -151,9 +153,10 @@
       </div>
       <div class="card">
         <h3>Take it with you</h3>
-        <p class="muted">The bundle holds the chat, terms, agreement and every hash.</p>
+        <p class="muted">The PDF report has the terms, their sources and the full trail. The JSON has every hash for checking by machine.</p>
         <div class="row">
-          <a class="btn" id="bundle">Download evidence</a>
+          <a class="btn primary" id="reportPdf" download>Download report (PDF)</a>
+          <a class="btn" id="bundle">Download data (JSON)</a>
           <button class="btn plain" id="refresh">Refresh status</button>
         </div>
         <p class="muted" style="margin-top:18px">For the demo: change a past entry and watch the check fail.</p>
@@ -163,7 +166,7 @@
   </section>
 
 </div>
-<footer class="foot"><div class="wrap muted">Handshake records what you both already said. It is not legal advice. Stamp duty rules differ by state, so check yours before relying on an agreement in court.</div></footer>
+<footer class="foot"><div class="wrap muted">Accord records what you both already said. It is not legal advice. Stamp duty rules differ by state, so check yours before relying on an agreement in court.</div></footer>
 <script src="/static/js/common.js"></script>
 <script src="/static/js/ticket.js"></script>
 </body>

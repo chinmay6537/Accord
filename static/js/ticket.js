@@ -79,7 +79,9 @@ document.addEventListener("click", (e) => {
 /* ---------- step 2: terms ---------- */
 function renderTerms() {
   const t = deal.terms;
-  $("engine").textContent = t.engine === "claude" ? "Read by Claude. Check every line before you continue." : "Read by built-in rules (no API key set). Check every line before you continue.";
+  const eng = t.engine === "claude" ? "Read by Claude." : (t.engine || "").startsWith("local") ? "Read by the local model (" + t.engine.slice(6) + ")." : "Read by built-in rules.";
+  $("engine").textContent = eng + (t.engine_note ? " " + t.engine_note : "") + " Check every line before you continue.";
+  $("summary").hidden = !t.summary; $("summary").textContent = t.summary || "";
   $("parties").innerHTML = t.parties.map((p) => `<span class="tag yellow">${esc(p.name)}</span>`).join("");
 
   const gst = { included: ["GST included", "green"], excluded: ["GST extra", "yellow"], not_mentioned: ["GST not discussed", "red"] }[t.price.gst] || ["", ""];
@@ -151,6 +153,8 @@ function renderProof() {
       <code title="${esc(e.prev_hash)}">after ${esc(e.prev_hash.slice(0, 24))}…</code>
     </li>`;
   }).join("");
+  $("reportPdf").href = `/api/deals/${deal.id}/report.pdf`;
+  $("agrPdf").href = `/api/deals/${deal.id}/agreement.pdf`;
   $("bundle").href = `/api/deals/${deal.id}/bundle`;
   $("bundle").setAttribute("download", `evidence-${deal.id}.json`);
 }
