@@ -6,11 +6,11 @@
 
 **Accord turns an informal WhatsApp deal into a clear, plain-language agreement that both sides confirm, backed by a tamper-evident evidence trail.**
 
-[![Live demo](https://img.shields.io/badge/🌐_LIVE_DEMO-accord--zwqk.onrender.com-000000?style=for-the-badge)](https://accord-zwqk.onrender.com/)
-[![Demo video](https://img.shields.io/badge/🎬_DEMO_VIDEO-3_min-000000?style=for-the-badge)](docs/Accord_Demo.mp4)
-[![Project report](https://img.shields.io/badge/📄_REPORT-PDF-000000?style=for-the-badge)](docs/Accord_Project_Report.pdf)
-[![Presentation](https://img.shields.io/badge/📊_SLIDES-PPTX-000000?style=for-the-badge)](docs/Accord_Presentation.pptx)
+[![Live demo](https://img.shields.io/badge/LIVE_DEMO-accord--zwqk.onrender.com-000000?style=for-the-badge&logo=render&logoColor=white)](https://accord-zwqk.onrender.com/)
+[![Demo video](https://img.shields.io/badge/DEMO_VIDEO-YouTube-000000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/7ZBxKYzH1WU)
 
+[![Project report](https://img.shields.io/badge/Project_Report-PDF-000000?style=flat-square&logo=adobeacrobatreader&logoColor=white)](docs/Accord_Project_Report.pdf)
+[![Presentation](https://img.shields.io/badge/Presentation-PPTX-000000?style=flat-square&logo=microsoftpowerpoint&logoColor=white)](docs/Accord_Presentation.pptx)
 [![Tests](https://img.shields.io/badge/tests-39%2F39_passing-000000?style=flat-square&logo=pytest&logoColor=white)](#-testing)
 [![Python](https://img.shields.io/badge/Python-3.10+-000000?style=flat-square&logo=python&logoColor=white)](#-quick-start)
 [![FastAPI](https://img.shields.io/badge/FastAPI-SQLite-000000?style=flat-square&logo=fastapi&logoColor=white)](#-architecture)
@@ -22,26 +22,22 @@
 
 ---
 
-## 📦 Submission at a glance
+## 🔗 Quick links
 
-> [!IMPORTANT]
-> **Everything for judging is linked here.** All files are in the [`docs/`](docs) folder of this repo.
-
-| | What | Open | Download |
-|:-:|---|---|---|
-| 🌐 | **Live website** | **[accord-zwqk.onrender.com](https://accord-zwqk.onrender.com/)** | — |
-| 🎬 | **Demo video** (3 min) | [Watch on GitHub](docs/Accord_Demo.mp4) | [Accord_Demo.mp4](https://github.com/chinmay6537/Accord/raw/main/docs/Accord_Demo.mp4) |
-| 📄 | **Project report** (PDF, 22 pages) | [Read on GitHub](docs/Accord_Project_Report.pdf) | [Accord_Project_Report.pdf](https://github.com/chinmay6537/Accord/raw/main/docs/Accord_Project_Report.pdf) |
-| 📊 | **Presentation** (PPTX, 14 slides) | [View on GitHub](docs/Accord_Presentation.pptx) | [Accord_Presentation.pptx](https://github.com/chinmay6537/Accord/raw/main/docs/Accord_Presentation.pptx) |
-| 💻 | **Source code** | You are here: [github.com/chinmay6537/Accord](https://github.com/chinmay6537/Accord) | [ZIP](https://github.com/chinmay6537/Accord/archive/refs/heads/main.zip) |
-| 🔑 | **Demo logins** | Dealer `demo.dealer@accord.test` · Customer `demo.customer@accord.test` | Password `demo12345` |
+| | Link |
+|---|---|
+| 🌐 **Live website** | **<https://accord-zwqk.onrender.com/>** |
+| 🎬 **Demo video** | **<https://youtu.be/7ZBxKYzH1WU>** |
+| 📄 **Project report (PDF)** | [docs/Accord_Project_Report.pdf](docs/Accord_Project_Report.pdf) |
+| 📊 **Presentation (PPTX)** | [docs/Accord_Presentation.pptx](docs/Accord_Presentation.pptx) · [download](https://github.com/chinmay6537/Accord/raw/main/docs/Accord_Presentation.pptx) |
+| 💻 **Source code** | [github.com/chinmay6537/Accord](https://github.com/chinmay6537/Accord) |
 
 ## 🎬 Demo video
 
 <div align="center">
-<a href="docs/Accord_Demo.mp4"><img src="docs/screenshots/demo-video-thumbnail.jpg" alt="Watch the Accord demo video" width="85%"></a>
+<a href="https://youtu.be/7ZBxKYzH1WU"><img src="docs/screenshots/demo-video-thumbnail.jpg" alt="Watch the Accord demo on YouTube" width="85%"></a>
 <br>
-<sub><b>Click to watch</b> · 3-minute captioned walkthrough: landing demo → dealer reads the chat → agreement → customer checks every term and approves → hash-chained proof and tamper check · <a href="https://github.com/chinmay6537/Accord/raw/main/docs/Accord_Demo.mp4">download MP4</a></sub>
+<sub>3-minute walkthrough: landing demo → dealer reads the chat → agreement → customer checks every term and approves → hash-chained proof and tamper check</sub>
 </div>
 
 ## 🔑 Demo logins
@@ -53,11 +49,7 @@ The live site and every fresh local copy come with a ready-made dealer, customer
 | 🏪 **Dealer** (Ravi Printers) | `demo.dealer@accord.test` | `demo12345` |
 | 🙋 **Customer** (Suresh Gowda) | `demo.customer@accord.test` | `demo12345` |
 
-> [!TIP]
-> Log in as the **dealer** in a normal browser window and as the **customer** in a **private / incognito** window. Login is stored per browser, so one window can only be one person.
-
-> [!NOTE]
-> The live demo runs on a free plan. It **sleeps after ~15 minutes** without visitors, so the first visit can take **30–60 seconds** to wake up. Accounts you create are cleared when it restarts; the demo accounts above always come back.
+Log in as the dealer in a normal browser window and as the customer in a private (incognito) window, since one browser can only be logged in as one person. The live site runs on a free plan, so the first visit after a quiet spell can take 30–60 seconds to wake up.
 
 **Suggested two-minute run**
 1. **Customer:** open the request, mark all four terms as matching, ask a question in chat, then approve.
@@ -321,7 +313,7 @@ static/                  Frontend
   customer.html js/customer.js    customer portal
   ticket.html   js/ticket.js      evidence, terms, agreement, proof
   confirm.html  js/confirm.js     no-account confirmation
-docs/                    Demo video (MP4), project report (PDF), presentation (PPTX) and screenshots
+docs/                    Project report (PDF), presentation (PPTX) and screenshots
 scripts/                 seed_demo.py (demo data), check_local_llm.py, llm_gateway.py
 Modelfile  setup_mac.sh  run_mac.sh  LOCAL_LLM.md   local AI model setup
 Dockerfile  start.sh  render.yaml  DEPLOY.md        deployment files and guide
