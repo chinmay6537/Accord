@@ -1,5 +1,5 @@
 <div align="center">
-
+ 
 # ◼ Accord
 
 ### From chat to commitment.
